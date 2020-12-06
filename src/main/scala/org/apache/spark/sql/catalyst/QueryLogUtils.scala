@@ -27,7 +27,7 @@ object QueryLogUtils {
   private val fixedUuid = UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88")
   private val fixedExprId = ExprId(0L, fixedUuid)
 
-  def computeFootPrint(qe: QueryExecution): Int = {
+  def computeFingerprint(qe: QueryExecution): Int = {
     // TODO: Use `QueryPlan.transformUpWithNewOutput` instead
     val canonicalized = qe.optimizedPlan.transformAllExpressions {
       case attr: AttributeReference => attr.copy()(fixedExprId, attr.qualifier)
@@ -36,8 +36,8 @@ object QueryLogUtils {
     canonicalized.semanticHash()
   }
 
-  def computePlanReferences(qe: QueryExecution): Map[String, Int] = {
+  def computePlanReferences(qe: QueryExecution): Seq[(String, Int)] = {
     val refs = qe.sparkPlan.collectLeaves().flatMap(_.output.map(_.qualifiedName))
-    refs.groupBy(identity).map { case (k, refs) => k -> refs.length }
+    refs.groupBy(identity).map { case (k, refs) => k -> refs.length }.toSeq
   }
 }

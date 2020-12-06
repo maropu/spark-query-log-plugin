@@ -92,6 +92,12 @@ So, users can group similar queries by using an arbitrary distance function
  - [5] Vitor Hirota Makiyama et al., "Text Mining Applied to SQL Queries: A Case Study for the SDSS SkyServer", SIMBig, 2015.
  - [6] Gokhan Kul et al., "Similarity Metrics for SQL Query Clustering", IEEE Transactions on Knowledge and Data Engineering, vol.30, no.12, pp.2408-2420, 2018.
 
+## TODO
+
+ - Implements various connectors (e.g., PostgreSQL and MySQL) to store query logs
+ - Supports more features to estimate query similarites
+ - Adds tests
+
 ## Bug reports
 
 If you hit some bugs and requests, please leave some comments on [Issues](https://github.com/maropu/spark-query-log-plugin/issues)
