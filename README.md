@@ -1,5 +1,5 @@
 [![License](http://img.shields.io/:license-Apache_v2-blue.svg)](https://github.com/maropu/spark-sql-server/blob/master/LICENSE)
-[![Build and test](https://github.com/maropu/spark-query-log-plugin/workflows/Build%20and%20test/badge.svg)](https://github.com/maropu/spark-query-log-plugin/actions?query=workflow%3A%22Build+and+tests%22)
+[![Build and test](https://github.com/maropu/spark-query-log-plugin/workflows/Build%20and%20test/badge.svg)](https://github.com/maropu/spark-query-log-plugin/actions?query=workflow%3A%22Build+and+test%22)
 
 This is an experimental toolkit to store query logs and provide a way to estimate a similarity between queries.
 A query similarity would be useful for real-world usecases such as performance analysis [1] and the sampling of test queries [2].
@@ -32,7 +32,7 @@ So, users can easily analyze query distribution and running time by using a simp
     scala> sql("SELECT a AS key, SUM(b) AS value FROM (SELECT * FROM VALUES (1, 1) s(a, b)) GROUP BY a").count()
     scala> sql("SELECT COUNT(v) AS v, k AS k FROM VALUES (1, 1) t(k, v) GROUP BY 2").count()
     scala> val df = QueryLogPlugin.load()
-    scala> df.selectExpr("query", "fingerprint", "from_json(durationMs, 'map<string, int>')['execution'] executionMs").write.saveAsTable("ql")
+    scala> df.selectExpr("query", "fingerprint", "durationMs['execution'] executionMs").write.saveAsTable("ql")
     scala> spark.table("ql").show()
     +-----------------------+-------------+-----------+
     |                  query|  fingerprint|executionMs|
@@ -62,7 +62,7 @@ So, users can group similar queries by using an arbitrary distance function
     scala> sql("SELECT lt.d, lt.c, lt.d FROM t lt, t rt WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d").count()
     scala> sql("SELECT d, SUM(c) FROM t GROUP BY d HAVING SUM(c) > 10").count()
     scala> val df = QueryLogPlugin.load()
-    scala> df.selectExpr("monotonically_increasing_id() rowid", "query", "fingerprint", "map_keys(from_json(refs, 'map<string, int>')) refs", "from_json(durationMs, 'map<string, int>')['execution'] executionMs").write.saveAsTable("ql")
+    scala> df.selectExpr("monotonically_increasing_id() rowid", "query", "fingerprint", "map_keys(refs) refs", "durationMs['execution'] executionMs").write.saveAsTable("ql")
     scala> spark.table("ql").show()
     +-----+-------------------------+------------+---------+-----------+
     |rowid|                    query| fingerprint|     refs|executionMs|
