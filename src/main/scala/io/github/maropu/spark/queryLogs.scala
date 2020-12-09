@@ -69,7 +69,7 @@ object QueryLogPlugin extends Logging {
   private val queryLogStore = SQLConf.get.queryLogStore match {
     case "MEMORY" => new QueryLogMemoryStore()
     case "SQLITE" => new QueryLogSQLiteStore()
-    case s => throw new IllegalStateException(s"Illegal log store type: $s")
+    case s => throw new IllegalStateException(s"Illegal query log store: $s")
   }
 
   private var initialized = false
