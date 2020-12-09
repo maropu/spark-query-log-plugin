@@ -22,9 +22,11 @@ import java.util.TimeZone
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.util.{DateTimeUtils, TimestampFormatter}
 import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
@@ -64,7 +66,11 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
 
 object QueryLogPlugin extends Logging {
 
-  private val queryLogStore = new QueryLogSQLiteStore()
+  private val queryLogStore = SQLConf.get.queryLogStore match {
+    case "MEMORY" => new QueryLogMemoryStore()
+    case "SQLITE" => new QueryLogSQLiteStore()
+    case s => throw new IllegalStateException(s"Illegal log store type: $s")
+  }
 
   private var initialized = false
 

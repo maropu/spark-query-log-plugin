@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql
 
+import java.util.Locale
+
 import scala.language.implicitConversions
 
 import org.apache.spark.internal.config.{ConfigBuilder, ConfigEntry, ConfigReader}
@@ -46,6 +48,18 @@ object QueryLogConf {
     }
   }
 
+  object QueryLogStore extends Enumeration {
+    val MEMORY, SQLITE = Value
+  }
+
+  val QUERY_LOG_STORE = buildStaticConf("spark.sql.queryLogStore")
+    .internal()
+    .doc("query log store to use.")
+    .stringConf
+    .transform(_.toUpperCase(Locale.ROOT))
+    .checkValues(QueryLogStore.values.map(_.toString))
+    .createWithDefault(QueryLogStore.SQLITE.toString)
+
   val QUERY_LOG_DB_NAME = buildStaticConf("spark.sql.queryLog.dbName")
     .internal()
     .doc("Database name to store query logs.")
@@ -69,6 +83,8 @@ class QueryLogConf(conf: SQLConf) {
   import QueryLogConf._
 
   private val reader = new ConfigReader(conf.settings)
+
+  def queryLogStore: String = getConf(QUERY_LOG_STORE)
 
   def queryLogDbName: String = getConf(QUERY_LOG_DB_NAME)
 

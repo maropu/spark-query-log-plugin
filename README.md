@@ -1,4 +1,5 @@
 [![License](http://img.shields.io/:license-Apache_v2-blue.svg)](https://github.com/maropu/spark-sql-server/blob/master/LICENSE)
+[![Build and test](https://github.com/maropu/spark-query-log-plugin/workflows/Build%20and%20test/badge.svg)](https://github.com/maropu/spark-query-log-plugin/actions?query=workflow%3A%22Build+and+tests%22)
 
 This is an experimental toolkit to store query logs and provide a way to estimate a similarity between queries.
 A query similarity would be useful for real-world usecases such as performance analysis [1] and the sampling of test queries [2].
