@@ -36,8 +36,8 @@ object QueryLogUtils {
     canonicalized.semanticHash()
   }
 
-  def computePlanReferences(qe: QueryExecution): Seq[(String, Int)] = {
+  def computePlanReferences(qe: QueryExecution): Map[String, Int] = {
     val refs = qe.sparkPlan.collectLeaves().flatMap(_.output.map(_.qualifiedName))
-    refs.groupBy(identity).map { case (k, refs) => k -> refs.length }.toSeq
+    refs.groupBy(identity).map { case (k, refs) => k -> refs.length }
   }
 }

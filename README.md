@@ -96,7 +96,6 @@ So, users can group similar queries by using an arbitrary distance function
 
  - Implements various connectors (e.g., PostgreSQL and MySQL) to store query logs
  - Supports more features to estimate query similarites
- - Adds tests
 
 ## Bug reports
 

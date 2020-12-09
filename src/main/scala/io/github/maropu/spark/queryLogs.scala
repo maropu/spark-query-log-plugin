@@ -28,8 +28,8 @@ import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
-  timestamp: String, query: String, fingerprint: Int, refs: Seq[(String, Int)],
-  durationMs: Seq[(String, Long)])
+  timestamp: String, query: String, fingerprint: Int, refs: Map[String, Int],
+  durationMs: Map[String, Long])
 
 private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   extends QueryExecutionListener {
@@ -52,8 +52,8 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
     val fingerprint = QueryLogUtils.computeFingerprint(qe)
     val refs = QueryLogUtils.computePlanReferences(qe)
     val durationMs = {
-      val metricSeq = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }.toSeq
-      metricSeq :+ ("execution" -> durationNs / (1000 * 1000))
+      val metricMap = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }
+      metricMap + ("execution" -> durationNs / (1000 * 1000))
     }
     val queryLog = QueryLog(currentTimestamp, query, fingerprint, refs, durationMs)
     queryLogStore.put(queryLog)
@@ -64,7 +64,7 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
 
 object QueryLogPlugin extends Logging {
 
-  private val queryLogStore = new SQLiteQueryLogStore()
+  private val queryLogStore = new QueryLogSQLiteStore()
 
   private var initialized = false
 

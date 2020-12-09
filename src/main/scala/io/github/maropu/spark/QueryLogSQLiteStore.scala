@@ -29,7 +29,7 @@ import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.ShutdownHookManagerAccessor
 
-private[spark] class SQLiteQueryLogStore extends QueryLogStore with Logging {
+private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
   private val sparkHome = sys.env.getOrElse("SPARK_HOME", System.getProperty("java.io.tmpdir"))
   private val dbName = SQLConf.get.queryLogDbName
   private val tableName = SQLConf.get.queryLogTableName
@@ -97,11 +97,14 @@ private[spark] class SQLiteQueryLogStore extends QueryLogStore with Logging {
   }
 
   override def load(): DataFrame = SparkSession.getActiveSession.map { sparkSession =>
-    sparkSession.read.format("jdbc")
+    val df = sparkSession.read.format("jdbc")
       .option("driver", "org.sqlite.JDBC")
       .option("url", s"jdbc:sqlite:$dbPath")
       .option("dbtable", tableName)
       .load()
+
+    df.selectExpr("timestamp", "query", "fingerprint", "from_json(refs, 'MAP<STRING, INT>')",
+      "from_json(durationMs, 'MAP<STRING, INT>')")
   }.getOrElse {
     throw new SparkException("Active Spark session not found")
   }
