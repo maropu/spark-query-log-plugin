@@ -102,7 +102,8 @@ So, users can group similar queries by using an arbitrary distance function
 ## TODO
 
  - Implements various connectors (e.g., PostgreSQL and MySQL) to store query logs
- - Supports more features to estimate query similarites
+ - Supports more features to estimate query similarities
+ - Add rules for plan regularization (See [6])
 
 ## Bug reports
 
