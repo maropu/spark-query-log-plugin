@@ -276,7 +276,17 @@
             <log4j.configuration>file:src/test/resources/log4j.properties</log4j.configuration>
             <derby.system.durability>test</derby.system.durability>
             <java.awt.headless>true</java.awt.headless>
-            <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+            <!--
+              When adding `/tmp` for `java.io.tmpdir`, the tests in GitHub Actions will fail:
+               Error: java.lang.IllegalStateException: Failed to connect database
+                 '/home/runner/work/spark-query-log-plugin/spark-query-log-plugin/target/tmp/querylogs.db' because path to
+                 '///home/runner/work/spark-query-log-plugin/spark-query-log-plugin/target/tmp/querylogs.db':
+                 '/home/runner/work/spark-query-log-plugin/spark-query-log-plugin/target/tmp' does not exist
+               Error: at io.github.maropu.spark.QueryLogSQLiteStore.init(QueryLogSQLiteStore.scala:80)
+               ...
+            -->
+            <!-- <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir> -->
+            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
             <spark.test.home>${spark.test.home}</spark.test.home>
             <spark.testing>1</spark.testing>
             <spark.master.rest.enabled>false</spark.master.rest.enabled>
@@ -326,7 +336,8 @@
             <log4j.configuration>file:src/test/resources/log4j.properties</log4j.configuration>
             <derby.system.durability>test</derby.system.durability>
             <java.awt.headless>true</java.awt.headless>
-            <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+            <!-- <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir> -->
+            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
             <spark.test.home>${spark.test.home}</spark.test.home>
             <spark.testing>1</spark.testing>
             <spark.ui.enabled>false</spark.ui.enabled>
