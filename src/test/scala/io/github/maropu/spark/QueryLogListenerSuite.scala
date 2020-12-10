@@ -17,86 +17,99 @@
 
 package io.github.maropu.spark
 
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+
 import org.apache.spark.TestUtils
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.test.SharedSparkSession
 
-class QueryLogListenerSuite extends QueryTest with SharedSparkSession {
+class QueryLogListenerSuite
+  extends QueryTest
+  with SharedSparkSession
+  with BeforeAndAfterAll
+  with BeforeAndAfterEach {
+
+  val (queryLogStore, queryLogListener) = {
+    val store = new QueryLogSQLiteStore()
+    store.init()
+    val listener = new QueryLogListener(store)
+    (store, listener)
+  }
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    spark.listenerManager.register(queryLogListener)
+  }
+
+  override def afterAll(): Unit = {
+    try {
+      spark.listenerManager.unregister(queryLogListener)
+    } finally {
+      super.afterAll()
+    }
+  }
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    queryLogStore.reset()
+  }
 
   test("registers a listener to store query logs") {
-    val queryLogStore = new QueryLogMemoryStore()
-    val listener = new QueryLogListener(queryLogStore)
-    spark.listenerManager.register(listener)
-    try {
-      sql("SELECT 1").collect()
-      sql("SELECT k, SUM(v) FROM VALUES (1, 1) t(k, v) GROUP BY k").collect()
-      sql("SELECT version()").collect()
-      TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val df = queryLogStore.load()
-      assert(df.count() === 3)
-      checkAnswer(df.selectExpr("fingerprint"),
-        Row(-447001758) :: Row(1120964768) :: Row(652410493) :: Nil)
-    } finally {
-      spark.listenerManager.unregister(listener)
-    }
+    sql("SELECT 1").collect()
+    sql("SELECT k, SUM(v) FROM VALUES (1, 1) t(k, v) GROUP BY k").collect()
+    sql("SELECT version()").collect()
+    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+    val results = queryLogStore.load()
+      .where("query LIKE '%Project%' OR query LIKE '%Aggregate%'")
+      .selectExpr("fingerprint")
+      .collect()
+    assert(results.toSet === Set(Row(-447001758), Row(1120964768), Row(652410493)))
   }
 
   test("fingerprint test") {
-    val queryLogStore = new QueryLogMemoryStore()
-    val listener = new QueryLogListener(queryLogStore)
-    spark.listenerManager.register(listener)
-    try {
-      sql(s"""
-           |SELECT COUNT(v) AS v, k AS k
-           |FROM VALUES (1, 1) t(k, v)
-           |GROUP BY 2
-         """.stripMargin).count()
-      sql(s"""
-           |SELECT a AS key, SUM(b) AS value
-           |FROM (
-           |  SELECT * FROM VALUES (1, 1) s(a, b)
-           |)
-           |GROUP BY a
-         """.stripMargin).count()
-      TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val df = queryLogStore.load()
-      assert(df.count() === 2)
-      checkAnswer(df.selectExpr("fingerprint").distinct(), Row(2090927494))
-    } finally {
-      spark.listenerManager.unregister(listener)
-    }
+    sql(s"""
+         |SELECT COUNT(v) AS v, k AS k
+         |FROM VALUES (1, 1) t(k, v)
+         |GROUP BY 2
+       """.stripMargin).count()
+    sql(s"""
+         |SELECT a AS key, SUM(b) AS value
+         |FROM (
+         |  SELECT * FROM VALUES (1, 1) s(a, b)
+         |)
+         |GROUP BY a
+       """.stripMargin).count()
+    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+    val results = queryLogStore.load()
+      .where("query LIKE '%Aggregate%'")
+      .selectExpr("fingerprint")
+      .distinct()
+      .collect()
+    assert(results === Seq(Row(2090927494)))
   }
 
   test("refs test") {
-    val queryLogStore = new QueryLogMemoryStore()
-    val listener = new QueryLogListener(queryLogStore)
-    spark.listenerManager.register(listener)
-    try {
-      withTable("t") {
-        sql("CREATE TABLE t (a INT, b INT, c INT, d INT) using parquet")
-        sql(s"""
-             |SELECT c, d FROM t WHERE c = 1 AND d = 2
-           """.stripMargin).count()
-        sql(s"""
-             |SELECT lt.d, lt.c, lt.d FROM t lt, t rt
-             |WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d
-           """.stripMargin).count()
-        sql(s"""
-             |SELECT d, SUM(c) FROM t GROUP BY d HAVING SUM(c) > 10
-           """.stripMargin).count()
-      }
-      TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val df = queryLogStore.load()
-      assert(df.count() === 5)
-      checkAnswer(df.selectExpr("refs"),
-        Row(Map()) ::
-        Row(Map()) ::
-        Row(Map("a" -> 2, "b" -> 2, "d" -> 2)) ::
-        Row(Map("c" -> 1, "d" -> 1)) ::
-        Row(Map("c" -> 1, "d" -> 1)) ::
-        Nil)
-    } finally {
-      spark.listenerManager.unregister(listener)
+    withTable("t") {
+      sql("CREATE TABLE t (a INT, b INT, c INT, d INT) using parquet")
+      sql(s"""
+           |SELECT c, d FROM t WHERE c = 1 AND d = 2
+         """.stripMargin).count()
+      sql(s"""
+           |SELECT lt.d, lt.c, lt.d FROM t lt, t rt
+           |WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d
+         """.stripMargin).count()
+      sql(s"""
+           |SELECT d, SUM(c) FROM t GROUP BY d HAVING SUM(c) > 10
+         """.stripMargin).count()
     }
+    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+    val results = queryLogStore.load()
+      .where("arrays_overlap(map_keys(refs), array('a', 'b', 'c', 'd'))")
+      .selectExpr("refs")
+      .collect()
+    assert(results.toSet === Set(
+      Row(Map("a" -> 2, "b" -> 2, "d" -> 2)),
+      Row(Map("c" -> 1, "d" -> 1))
+    ))
   }
 }
