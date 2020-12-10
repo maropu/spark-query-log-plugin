@@ -39,7 +39,8 @@ jobs:
           java-version: ${{ matrix.java }}
       - name: Run tests
         run: |
-          ./build/mvn -q clean test
+          ./build/mvn -q clean package -DskpTests
+          ./build/mvn test
       - name: Upload test results to report
         if: always()
         uses: actions/upload-artifact@v2
