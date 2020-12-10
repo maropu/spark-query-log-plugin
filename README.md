@@ -6,7 +6,7 @@ A query similarity would be useful for real-world usecases such as performance a
 
 ## Query Logging
 
-To store query logs, you need to install this plugin first:
+To start storing query logs, you need to install this plugin first:
 
     $ git clone https://github.com/maropu/spark-query-log-plugin.git
     $ cd spark-query-log-plugin.git
