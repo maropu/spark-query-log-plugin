@@ -19,7 +19,6 @@ package io.github.maropu.spark
 
 import java.sql.{Connection, DriverManager, Statement}
 
-import scala.util.Random
 import scala.util.control.NonFatal
 
 import org.apache.spark.SparkException
@@ -44,7 +43,6 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
      """.stripMargin
 
   private def dbPath = s"$sparkHome/$dbName.db"
-  private def queryLogRandomSamplingRatio = SQLConf.get.queryLogRandomSamplingRatio
 
   private var connOption: Option[Connection] = None
 
@@ -82,17 +80,15 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
   }
 
   override def put(ql: QueryLog): Unit = {
-    if (queryLogRandomSamplingRatio > Random.nextDouble()) {
-      withJdbcStatement { stmt =>
-        val refs = ql.refs.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")
-        val durationMs = ql.durationMs.map { case (m, t) => s""""$m": $t""" }
-          .mkString("{", ", ", "}")
-        stmt.execute(s"""
-             |INSERT INTO $tableName VALUES (
-             |  '${ql.timestamp}', '${ql.query}', ${ql.fingerprint}, '$refs', '$durationMs'
-             |);
-           """.stripMargin)
-      }
+    withJdbcStatement { stmt =>
+      val refs = ql.refs.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")
+      val durationMs = ql.durationMs.map { case (m, t) => s""""$m": $t""" }
+        .mkString("{", ", ", "}")
+      stmt.execute(s"""
+           |INSERT INTO $tableName VALUES (
+           |  '${ql.timestamp}', '${ql.query}', ${ql.fingerprint}, '$refs', '$durationMs'
+           |);
+         """.stripMargin)
     }
   }
 

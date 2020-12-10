@@ -19,6 +19,8 @@ package io.github.maropu.spark
 
 import java.util.TimeZone
 
+import scala.util.Random
+
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -36,6 +38,8 @@ case class QueryLog(
 private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   extends QueryExecutionListener {
 
+  private def queryLogRandomSamplingRatio = SQLConf.get.queryLogRandomSamplingRatio
+
   private def timestampFormatter = {
     val timeZoneId = DateTimeUtils.getZoneId(SparkSession.getActiveSession.map { sparkSession =>
       sparkSession.sessionState.conf.sessionLocalTimeZone
@@ -50,15 +54,17 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   }
 
   override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
-    val query = qe.optimizedPlan.toString()
-    val fingerprint = QueryLogUtils.computeFingerprint(qe)
-    val refs = QueryLogUtils.computePlanReferences(qe)
-    val durationMs = {
-      val metricMap = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }
-      metricMap + ("execution" -> durationNs / (1000 * 1000))
+    if (queryLogRandomSamplingRatio > Random.nextDouble()) {
+      val query = qe.optimizedPlan.toString()
+      val fingerprint = QueryLogUtils.computeFingerprint(qe)
+      val refs = QueryLogUtils.computePlanReferences(qe)
+      val durationMs = {
+        val metricMap = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }
+        metricMap + ("execution" -> durationNs / (1000 * 1000))
+      }
+      val queryLog = QueryLog(currentTimestamp, query, fingerprint, refs, durationMs)
+      queryLogStore.put(queryLog)
     }
-    val queryLog = QueryLog(currentTimestamp, query, fingerprint, refs, durationMs)
-    queryLogStore.put(queryLog)
   }
 
   override def onFailure(funcName: String, qe: QueryExecution, exception: Exception): Unit = {}

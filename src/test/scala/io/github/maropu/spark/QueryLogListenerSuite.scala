@@ -20,7 +20,7 @@ package io.github.maropu.spark
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
 import org.apache.spark.TestUtils
-import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.{QueryLogConf, QueryTest, Row}
 import org.apache.spark.sql.test.SharedSparkSession
 
 class QueryLogListenerSuite
@@ -30,7 +30,7 @@ class QueryLogListenerSuite
   with BeforeAndAfterEach {
 
   val (queryLogStore, queryLogListener) = {
-    val store = new QueryLogSQLiteStore()
+    val store = new QueryLogMemoryStore()
     store.init()
     val listener = new QueryLogListener(store)
     (store, listener)
@@ -111,5 +111,19 @@ class QueryLogListenerSuite
       Row(Map("a" -> 2, "b" -> 2, "d" -> 2)),
       Row(Map("c" -> 1, "d" -> 1))
     ))
+  }
+
+  test("random sampling") {
+    withSQLConf(QueryLogConf.QUERY_LOG_RANDOM_SAMPLING_RATIO.key -> "0.05") {
+      (0 until 10).foreach { _ => sql("SELECT 10").count() }
+      TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+      assert(queryLogStore.load().count() < 4)
+      queryLogStore.reset()
+    }
+    withSQLConf(QueryLogConf.QUERY_LOG_RANDOM_SAMPLING_RATIO.key -> "1.0") {
+      (0 until 10).foreach { _ => sql("SELECT 10").count() }
+      TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+      assert(queryLogStore.load().count() >= 10)
+    }
   }
 }
