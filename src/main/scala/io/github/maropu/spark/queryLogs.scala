@@ -20,10 +20,9 @@ package io.github.maropu.spark
 import java.util.TimeZone
 
 import scala.util.Random
-
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SQLContext, SparkSession}
 import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.util.{DateTimeUtils, TimestampFormatter}
@@ -72,25 +71,60 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
 
 object QueryLogPlugin extends Logging {
 
-  private val queryLogStore = SQLConf.get.queryLogStore match {
+  @volatile private var queryLogStore: QueryLogStore = _
+  @volatile private var queryLogListener: QueryLogListener = _
+  @volatile private var installed = false
+
+  private def defaultQueryLogStore = SQLConf.get.queryLogStore match {
     case "MEMORY" => new QueryLogMemoryStore()
     case "SQLITE" => new QueryLogSQLiteStore()
     case s => throw new IllegalStateException(s"Illegal query log store: $s")
   }
 
-  private var initialized = false
-
-  def install(): Unit = if (!initialized) {
-    SparkSession.getActiveSession.map { sparkSession =>
-      queryLogStore.init()
-      sparkSession.listenerManager.register(new QueryLogListener(queryLogStore))
-      initialized = true
-    }.getOrElse {
-      throw new SparkException("Active Spark session not found")
+  def install(logSink: QueryLogStore): Unit = synchronized {
+    if (!installed) {
+      SparkSession.getActiveSession.map { sparkSession =>
+        queryLogStore = logSink
+        queryLogListener = new QueryLogListener(logSink)
+        logSink.init()
+        sparkSession.sqlContext.listenerManager.register(queryLogListener)
+        installed = true
+      }.getOrElse {
+        throw new SparkException("Active Spark session not found")
+      }
+    } else {
+      throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
+        "already installed")
     }
-  } else {
-    logWarning(s"`${classOf[QueryLogListener].getSimpleName}` already installed")
   }
 
-  def load(): DataFrame = queryLogStore.load()
+  def install(): Unit = {
+    install(defaultQueryLogStore)
+  }
+
+  def uninstall(): Unit = synchronized {
+    if (installed) {
+      SparkSession.getActiveSession.map { sparkSession =>
+        sparkSession.sqlContext.listenerManager.unregister(queryLogListener)
+        queryLogStore.release()
+        queryLogStore = null
+        queryLogListener = null
+        installed = false
+      }.getOrElse {
+        throw new SparkException("Active Spark session not found")
+      }
+    } else {
+      throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
+        "not installed")
+    }
+  }
+
+  def load(): DataFrame = synchronized {
+    if (!installed) {
+      throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
+        "not installed")
+    } else {
+      queryLogStore.load()
+    }
+  }
 }

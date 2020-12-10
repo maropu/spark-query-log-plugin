@@ -35,6 +35,14 @@ class QueryLogSQLiteStoreSuite extends QueryTest with SharedSparkSession with Be
     queryLogStore.reset()
   }
 
+  override def afterEach(): Unit = {
+    try {
+      queryLogStore.reset()
+    } finally {
+      super.afterEach()
+    }
+  }
+
   test("put/load test") {
     val q1 = QueryLog("2020-12-09 06:27:44.443", "query", 5242,
       Map("a" -> 1, "b" -> 2), Map("execution" -> 5))

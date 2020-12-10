@@ -27,8 +27,6 @@ private[spark] class QueryLogMemoryStore extends QueryLogStore {
 
   private var queryLogs = mutable.ArrayBuffer[QueryLog]()
 
-  override def init(): Unit = {}
-
   override def put(queryLog: QueryLog): Unit = synchronized {
     queryLogs.append(queryLog)
   }

@@ -79,6 +79,10 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
     }
   }
 
+  override def release(): Unit = {
+    connOption.foreach { _.close() }
+  }
+
   override def put(ql: QueryLog): Unit = {
     withJdbcStatement { stmt =>
       val refs = ql.refs.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")

@@ -51,6 +51,7 @@ class QueryLogListenerSuite
 
   override def beforeEach(): Unit = {
     super.beforeEach()
+    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
     queryLogStore.reset()
   }
 

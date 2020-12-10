@@ -20,9 +20,12 @@ package io.github.maropu.spark
 import org.apache.spark.sql.DataFrame
 
 abstract class QueryLogStore {
-
-  def init(): Unit
   def put(queryLog: QueryLog): Unit
-  def load(): DataFrame
-  def reset(): Unit
+
+  def init(): Unit = {}
+  def release(): Unit = {}
+  def reset(): Unit = {}
+  def load(): DataFrame = {
+    throw new UnsupportedOperationException("`load()` not supported.")
+  }
 }
