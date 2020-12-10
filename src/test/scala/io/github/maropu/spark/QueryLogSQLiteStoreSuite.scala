@@ -17,14 +17,25 @@
 
 package io.github.maropu.spark
 
+import org.scalatest.BeforeAndAfterEach
+
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
-class QueryLogSQLiteStoreSuite extends QueryTest with SharedSparkSession {
+class QueryLogSQLiteStoreSuite extends QueryTest with SharedSparkSession with BeforeAndAfterEach {
+
+  val queryLogStore = {
+    val store = new QueryLogSQLiteStore()
+    store.init()
+    store
+  }
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    queryLogStore.reset()
+  }
 
   test("put/load test") {
-    val queryLogStore = new QueryLogSQLiteStore()
-    queryLogStore.init()
     val q1 = QueryLog("2020-12-09 06:27:44.443", "query", 5242,
       Map("a" -> 1, "b" -> 2), Map("execution" -> 5))
     val q2 = QueryLog("2020-12-10 08:00:04.153", "query", 2932,

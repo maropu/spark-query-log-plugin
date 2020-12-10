@@ -22,6 +22,7 @@ import scala.collection.mutable
 import org.apache.spark.SparkException
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+// For test uses
 private[spark] class QueryLogMemoryStore extends QueryLogStore {
 
   private var queryLogs = mutable.ArrayBuffer[QueryLog]()
@@ -34,7 +35,7 @@ private[spark] class QueryLogMemoryStore extends QueryLogStore {
 
   override def load(): DataFrame = synchronized {
     SparkSession.getActiveSession.map { sparkSession =>
-      sparkSession.createDataFrame(queryLogs)
+      sparkSession.createDataFrame(queryLogs.clone)
     }.getOrElse {
       throw new SparkException("Active Spark session not found")
     }
