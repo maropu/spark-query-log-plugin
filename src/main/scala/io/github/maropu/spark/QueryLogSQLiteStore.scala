@@ -104,7 +104,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
       .load()
 
     df.selectExpr("timestamp", "query", "fingerprint", "from_json(refs, 'MAP<STRING, INT>') refs",
-      "from_json(durationMs, 'MAP<STRING, INT>') durationMs")
+      "from_json(durationMs, 'MAP<STRING, LONG>') durationMs")
   }.getOrElse {
     throw new SparkException("Active Spark session not found")
   }

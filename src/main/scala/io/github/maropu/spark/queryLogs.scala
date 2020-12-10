@@ -20,9 +20,10 @@ package io.github.maropu.spark
 import java.util.TimeZone
 
 import scala.util.Random
+
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{DataFrame, SQLContext, SparkSession}
+import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.util.{DateTimeUtils, TimestampFormatter}
@@ -33,6 +34,10 @@ import org.apache.spark.sql.util.QueryExecutionListener
 case class QueryLog(
   timestamp: String, query: String, fingerprint: Int, refs: Map[String, Int],
   durationMs: Map[String, Long])
+
+object QueryLog {
+  val schema = Encoders.product[QueryLog].schema
+}
 
 private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   extends QueryExecutionListener {
@@ -124,7 +129,11 @@ object QueryLogPlugin extends Logging {
       throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
         "not installed")
     } else {
-      queryLogStore.load()
+      val queryLogs = queryLogStore.load()
+      if (queryLogs.schema.sql != QueryLog.schema.sql) {
+        throw new IllegalStateException(s"Illegal query log schema found: ${queryLogs.schema.sql}")
+      }
+      queryLogs
     }
   }
 }
