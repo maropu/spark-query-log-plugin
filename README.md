@@ -84,6 +84,12 @@ So, users can group similar queries by using an arbitrary distance function
     |    2|    1|      0.25|
     +-----+-----+----------+
 
+## Configurations
+
+|  Property Name  |  Default  |  Meaning  |
+| ---- | ---- | ---- |
+|  spark.sql.queryLog.randomSamplingRatio  |  1.0  |  Sampling ratio for query logs. |
+
 ## References
 
  - [1] Shaleen Deep and et al., "Comprehensive and Efficient Workload Compression", arXiv, 2020, https://arxiv.org/abs/2011.05549.

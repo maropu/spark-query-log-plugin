@@ -73,7 +73,7 @@ object QueryLogConf {
     .createWithDefault("__spark_query_logs")
 
   val QUERY_LOG_RANDOM_SAMPLING_RATIO = buildConf("spark.sql.queryLog.randomSamplingRatio")
-    .doc("Optimization level in LLVM.")
+    .doc("Sampling ratio for query logs.")
     .doubleConf
     .checkValue(v => 0.0 <= v && v <= 1.0, "The value must be in [0.0, 1.0].")
     .createWithDefault(1.0)
