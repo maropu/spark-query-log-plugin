@@ -29,6 +29,7 @@ import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.util.{DateTimeUtils, TimestampFormatter}
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
@@ -58,7 +59,7 @@ case class QueryLog(
 
 object QueryLog extends Logging {
 
-  val schema = Encoders.product[QueryLog].schema
+  val schema: StructType = Encoders.product[QueryLog].schema
 
   private[spark] def logBasedOnLevel(f: => String): Unit = {
     val logLevel = SQLConf.get.debugLogLevel
