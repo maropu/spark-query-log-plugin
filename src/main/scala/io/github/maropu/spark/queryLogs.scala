@@ -33,10 +33,44 @@ import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
   timestamp: String, query: String, fingerprint: Int, refs: Map[String, Int],
-  durationMs: Map[String, Long])
+  durationMs: Map[String, Long]) {
 
-object QueryLog {
+  private def maxQueryStringLength = SQLConf.get.maxQueryStringLength
+
+  private def toMapString[K, V](m: Map[K, V]): String =
+    m.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")
+
+  private def toQueryString(queryStr: String) = {
+    val q = queryStr.toString.replaceAll("\n", "\\\\n").replaceAll("\t", "\\\\t")
+    if (maxQueryStringLength > 0 && q.length > maxQueryStringLength) {
+      q.substring(0, maxQueryStringLength) + "..."
+    } else {
+      q
+    }
+  }
+
+  override def toString(): String = {
+    s"""{"timestamp": "$timestamp", "query": "${toQueryString(query)}", """ +
+      s""""fingerprint": $fingerprint, "refs": ${toMapString(refs)}, """ +
+      s""""durationMs": ${toMapString(durationMs)}}"""
+  }
+}
+
+object QueryLog extends Logging {
+
   val schema = Encoders.product[QueryLog].schema
+
+  private[spark] def logBasedOnLevel(f: => String): Unit = {
+    val logLevel = SQLConf.get.debugLogLevel
+    logLevel match {
+      case "TRACE" => logTrace(f)
+      case "DEBUG" => logDebug(f)
+      case "INFO" => logInfo(f)
+      case "WARN" => logWarning(f)
+      case "ERROR" => logError(f)
+      case _ => logTrace(f)
+    }
+  }
 }
 
 private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
@@ -67,6 +101,7 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
         metricMap + ("execution" -> durationNs / (1000 * 1000))
       }
       val queryLog = QueryLog(currentTimestamp, query, fingerprint, refs, durationMs)
+      QueryLog.logBasedOnLevel(queryLog.toString())
       queryLogStore.put(queryLog)
     }
   }

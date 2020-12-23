@@ -77,6 +77,20 @@ object QueryLogConf {
     .doubleConf
     .checkValue(v => 0.0 <= v && v <= 1.0, "The value must be in [0.0, 1.0].")
     .createWithDefault(1.0)
+
+  val QUERY_LOG_DEBUG_LOG_LEVEL = buildConf("spark.sql.queryLog.debugLogLevel")
+    .internal()
+    .doc("Configures the log level for query logging. The value can be 'TRACE', 'DEBUG', 'INFO', " +
+      "'WARN', or 'ERROR'. The default log level is 'DEBUG'.")
+    .stringConf
+    .transform(_.toUpperCase(Locale.ROOT))
+    .checkValues(Set("TRACE", "DEBUG", "INFO", "WARN", "ERROR"))
+    .createWithDefault("DEBUG")
+
+  val QUERY_LOG_MAX_QUERY_STRING_LENGTH = buildConf("spark.sql.queryLog.maxQueryStringLength")
+    .doc("The maximum length of a query string in query logs.")
+    .intConf
+    .createWithDefault(15)
 }
 
 class QueryLogConf(conf: SQLConf) {
@@ -91,6 +105,10 @@ class QueryLogConf(conf: SQLConf) {
   def queryLogTableName: String = getConf(QUERY_LOG_TABLE_NAME)
 
   def queryLogRandomSamplingRatio: Double = getConf(QUERY_LOG_RANDOM_SAMPLING_RATIO)
+
+  def debugLogLevel: String = getConf(QUERY_LOG_DEBUG_LOG_LEVEL)
+
+  def maxQueryStringLength: Int = getConf(QUERY_LOG_MAX_QUERY_STRING_LENGTH)
 
   /**
    * Return the value of configuration property for the given key. If the key is not set yet,
