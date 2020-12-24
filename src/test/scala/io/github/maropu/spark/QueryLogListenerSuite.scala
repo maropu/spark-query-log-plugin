@@ -90,28 +90,39 @@ class QueryLogListenerSuite
   }
 
   test("refs test") {
-    withTable("t") {
-      sql("CREATE TABLE t (a INT, b INT, c INT, d INT) using parquet")
-      sql(s"""
-           |SELECT c, d FROM t WHERE c = 1 AND d = 2
-         """.stripMargin).count()
-      sql(s"""
-           |SELECT lt.d, lt.c, lt.d FROM t lt, t rt
+    withTable("t1") {
+      sql("CREATE TABLE t1 (a INT, b INT, c INT, d INT) using parquet")
+
+      def checkReferences(query: String, expectedRefs: Map[String, Int]): Unit = {
+        sql(query).collect()
+        TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+        val refs = queryLogStore.load()
+          .where("arrays_overlap(map_keys(refs), array('a', 'b', 'c', 'd'))")
+          .selectExpr("refs")
+          .collect()
+        assert(refs === Seq(Row(expectedRefs)))
+        queryLogStore.reset()
+      }
+
+      checkReferences(
+        s"""
+           |SELECT c, d FROM t1 WHERE c = 1 AND d = 2
+         """.stripMargin,
+        Map("c" -> 1, "d" -> 1))
+
+      checkReferences(
+        s"""
+           |SELECT lt.d, lt.c, lt.d FROM t1 lt, t1 rt
            |WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d
-         """.stripMargin).count()
-      sql(s"""
-           |SELECT d, SUM(c) FROM t GROUP BY d HAVING SUM(c) > 10
-         """.stripMargin).count()
+         """.stripMargin,
+        Map("a" -> 2, "b" -> 2, "c" -> 1, "d" -> 2))
+
+      checkReferences(
+        s"""
+           |SELECT d, SUM(c) FROM t1 GROUP BY d HAVING SUM(c) > 10
+         """.stripMargin,
+        Map("c" -> 1, "d" -> 1))
     }
-    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-    val results = queryLogStore.load()
-      .where("arrays_overlap(map_keys(refs), array('a', 'b', 'c', 'd'))")
-      .selectExpr("refs")
-      .collect()
-    assert(results.toSet === Set(
-      Row(Map("a" -> 2, "b" -> 2, "d" -> 2)),
-      Row(Map("c" -> 1, "d" -> 1))
-    ))
   }
 
   test("random sampling") {

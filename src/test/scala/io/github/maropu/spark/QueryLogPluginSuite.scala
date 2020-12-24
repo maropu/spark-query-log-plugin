@@ -41,8 +41,8 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
     withQueryStore {
       (0 until 10).foreach { _ => sql("SELECT 1").count() }
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val queryLogs = QueryLogPlugin.load().where("fingerprint = -453247703")
-      assert(queryLogs.count() === 10)
+      val ql = QueryLogPlugin.load().where("fingerprint = -453247703")
+      assert(ql.count() === 10)
     }
   }
 
