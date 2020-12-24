@@ -89,39 +89,67 @@ class QueryLogListenerSuite
     assert(results === Seq(Row(91016659)))
   }
 
-  test("refs test") {
-    withTable("t1") {
-      sql("CREATE TABLE t1 (a INT, b INT, c INT, d INT) using parquet")
+  test("attrRefs test") {
+    withTable("t1", "t2") {
+      sql("CREATE TABLE t1 (a INT, b INT, c INT, d INT) USING parquet")
+      sql("CREATE TABLE t2 (e INT, f INT, g INT) USING parquet")
 
-      def checkReferences(query: String, expectedRefs: Map[String, Int]): Unit = {
+      def checkAttrReferences(query: String, expectedRefs: Map[String, Int]): Unit = {
         sql(query).collect()
         TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
+        val attrs = Seq("t1.a", "t1.b", "t1.c", "t1.d", "t2.e", "t2.f", "t2.g")
         val refs = queryLogStore.load()
-          .where("arrays_overlap(map_keys(refs), array('a', 'b', 'c', 'd'))")
-          .selectExpr("refs")
+          .where("arrays_overlap(map_keys(attrRefs), " +
+            s"array(${attrs.map { a => s"'default.$a'" }.mkString(", ")}))")
+          .selectExpr("attrRefs")
           .collect()
         assert(refs === Seq(Row(expectedRefs)))
         queryLogStore.reset()
       }
 
-      checkReferences(
+      checkAttrReferences(
         s"""
-           |SELECT c, d FROM t1 WHERE c = 1 AND d = 2
+           |SELECT a, b FROM t1
          """.stripMargin,
-        Map("c" -> 1, "d" -> 1))
+        Map("default.t1.a" -> 1, "default.t1.b" -> 1))
 
-      checkReferences(
+      checkAttrReferences(
+        s"""
+           |SELECT a, c FROM t1 WHERE b = 1 AND d = 2
+         """.stripMargin,
+        Map("default.t1.a" -> 1, "default.t1.b" -> 1, "default.t1.c" -> 1, "default.t1.d" -> 1))
+
+      checkAttrReferences(
+        s"""
+           |SELECT c, d, 1 AS e, 2 AS f FROM t1 WHERE c = 1 AND d = 2
+         """.stripMargin,
+        Map("default.t1.c" -> 1, "default.t1.d" -> 1))
+
+      checkAttrReferences(
+        s"""
+           |SELECT * FROM t1 WHERE a > 1 AND a = 5
+         """.stripMargin,
+        Map("default.t1.a" -> 1, "default.t1.b" -> 1, "default.t1.c" -> 1, "default.t1.d" -> 1))
+
+      checkAttrReferences(
         s"""
            |SELECT lt.d, lt.c, lt.d FROM t1 lt, t1 rt
            |WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d
          """.stripMargin,
-        Map("a" -> 2, "b" -> 2, "c" -> 1, "d" -> 2))
+        Map("default.t1.a" -> 2, "default.t1.b" -> 2, "default.t1.c" -> 1, "default.t1.d" -> 2))
 
-      checkReferences(
+      checkAttrReferences(
         s"""
            |SELECT d, SUM(c) FROM t1 GROUP BY d HAVING SUM(c) > 10
          """.stripMargin,
-        Map("c" -> 1, "d" -> 1))
+        Map("default.t1.c" -> 1, "default.t1.d" -> 1))
+
+      checkAttrReferences(
+        s"""
+           |SELECT SUM(g), COUNT(a) FROM t1, t2 WHERE t1.a = t2.f
+           |GROUP BY f, c
+         """.stripMargin,
+        Map("default.t1.a" -> 1, "default.t1.c" -> 1, "default.t2.f" -> 1, "default.t2.g" -> 1))
     }
   }
 

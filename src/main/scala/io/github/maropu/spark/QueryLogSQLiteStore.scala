@@ -37,7 +37,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
        |  timestamp TEXT,
        |  query TEXT,
        |  fingerprint INTEGER,
-       |  refs TEXT,
+       |  attrRefs TEXT,
        |  durationMs TEXT
        |);
      """.stripMargin
@@ -85,7 +85,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
 
   override def put(ql: QueryLog): Unit = {
     withJdbcStatement { stmt =>
-      val refs = ql.refs.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")
+      val refs = ql.attrRefs.map { case (k, v) => s""""$k": $v""" }.mkString("{", ", ", "}")
       val durationMs = ql.durationMs.map { case (m, t) => s""""$m": $t""" }
         .mkString("{", ", ", "}")
       stmt.execute(s"""
@@ -103,7 +103,8 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
       .option("dbtable", tableName)
       .load()
 
-    df.selectExpr("timestamp", "query", "fingerprint", "from_json(refs, 'MAP<STRING, INT>') refs",
+    df.selectExpr(
+      "timestamp", "query", "fingerprint", "from_json(attrRefs, 'MAP<STRING, INT>') attrRefs",
       "from_json(durationMs, 'MAP<STRING, LONG>') durationMs")
   }.getOrElse {
     throw new SparkException("Active Spark session not found")

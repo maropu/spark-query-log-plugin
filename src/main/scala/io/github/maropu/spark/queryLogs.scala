@@ -37,7 +37,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
-  timestamp: String, query: String, fingerprint: Int, refs: Map[String, Int],
+  timestamp: String, query: String, fingerprint: Int, attrRefs: Map[String, Int],
   durationMs: Map[String, Long]) {
 
   private def maxQueryStringLength = SQLConf.get.maxQueryStringLength
@@ -56,7 +56,7 @@ case class QueryLog(
 
   override def toString(): String = {
     s"""{"timestamp": "$timestamp", "query": "${toQueryString(query)}", """ +
-      s""""fingerprint": $fingerprint, "refs": ${toMapString(refs)}, """ +
+      s""""fingerprint": $fingerprint, "attrRefs": ${toMapString(attrRefs)}, """ +
       s""""durationMs": ${toMapString(durationMs)}}"""
   }
 }

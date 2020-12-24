@@ -17,11 +17,11 @@ To start storing query logs, you need to install this plugin first:
     scala> sql("SELECT 1").count()
     scala> val df = QueryLogPlugin.load()
     scala> df.show()
-    +-----------------------+-----------------------+------------+----+-----------------------+
-    |              timestamp|                  query| fingerprint|refs|             durationMs|
-    +-----------------------+-----------------------+------------+----+-----------------------+
-    |2020-12-04 22:42:52.022|Aggregate [count(1) ...|  -453247703|  {}|{"planning": 1168, "...|
-    +-----------------------+-----------------------+------------+----+-----------------------+
+    +-----------------------+-----------------------+------------+---------+-----------------------+
+    |              timestamp|                  query| fingerprint| attrRefs|             durationMs|
+    +-----------------------+-----------------------+------------+---------+-----------------------+
+    |2020-12-04 22:42:52.022|Aggregate [count(1) ...|  -453247703|       {}|{"planning": 1168, "...|
+    +-----------------------+-----------------------+------------+---------+-----------------------+
 
 ## Grouping based on Query fingerprint
 
@@ -52,7 +52,7 @@ So, users can easily analyze query distribution and running time by using a simp
 
 There are various methods to estimate a similarity between queries depending on use cases.
 For example, earlier studies [3,4,5,6] use the references of relational algebra operations (e.g., `selection`, `joins`, and `group-by`)
-as a feature vector to compute a query similarity. The "refs" columns in the query log table represents
+as a feature vector to compute a query similarity. The "attrRefs" columns in the query log table represents
 a list of referenced columns on scan (leaf) operators and the number of times to read these columns.
 So, users can group similar queries by using an arbitrary distance function
 (the Jaccard similarity coefficient in this example) as follows:
@@ -62,15 +62,15 @@ So, users can group similar queries by using an arbitrary distance function
     scala> sql("SELECT lt.d, lt.c, lt.d FROM t lt, t rt WHERE lt.a = rt.a AND lt.b = rt.b AND lt.d = rt.d").count()
     scala> sql("SELECT d, SUM(c) FROM t GROUP BY d HAVING SUM(c) > 10").count()
     scala> val df = QueryLogPlugin.load()
-    scala> df.selectExpr("monotonically_increasing_id() rowid", "query", "fingerprint", "map_keys(refs) refs", "durationMs['execution'] executionMs").write.saveAsTable("ql")
+    scala> df.selectExpr("monotonically_increasing_id() rowid", "query", "fingerprint", "map_keys(attrRefs) refs", "durationMs['execution'] executionMs").write.saveAsTable("ql")
     scala> spark.table("ql").show()
-    +-----+-------------------------+------------+---------+-----------+
-    |rowid|                    query| fingerprint|     refs|executionMs|
-    +-----+-------------------------+------------+---------+-----------+
-    |    0|Aggregate [count(1) AS...|   291972041|   [d, c]|       3796|
-    |    1|Aggregate [count(1) AS...|   560512157|[b, d, a]|       3684|
-    |    2|Aggregate [count(1) AS...|  2127616458|[b, a, c]|       2011|
-    +-----+-------------------------+------------+---------+-----------+
+    +-----+-------------------------+------------+----------+-----------+
+    |rowid|                    query| fingerprint|  attrRefs|executionMs|
+    +-----+-------------------------+------------+----------+-----------+
+    |    0|Aggregate [count(1) AS...|   291972041|    [d, c]|       3796|
+    |    1|Aggregate [count(1) AS...|   560512157| [b, d, a]|       3684|
+    |    2|Aggregate [count(1) AS...|  2127616458| [b, a, c]|       2011|
+    +-----+-------------------------+------------+----------+-----------+
 
     scala> sql("SELECT l.rowid, r.rowid, (size(array_intersect(l.refs, r.refs))) / size(array_distinct(array_union(l.refs, r.refs))) similarity FROM ql l, ql r WHERE l.rowid != r.rowid").show()
     +-----+-----+----------+

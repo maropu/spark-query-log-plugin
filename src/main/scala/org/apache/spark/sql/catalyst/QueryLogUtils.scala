@@ -21,7 +21,7 @@ import java.util.UUID
 
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{FileSourceScanExec, SparkPlan}
 
 object QueryLogUtils {
 
@@ -38,7 +38,13 @@ object QueryLogUtils {
   }
 
   def computePlanReferences(plan: SparkPlan): Map[String, Int] = {
-    val refs = plan.collectLeaves().flatMap(_.output.map(_.qualifiedName))
+    val refs = plan.collectLeaves().flatMap {
+      case s: FileSourceScanExec if s.tableIdentifier.isDefined =>
+        val ident = s.tableIdentifier.get.unquotedString
+        s.output.map { a => s"$ident.${a.name}" }
+      case p =>
+        p.output.map(_.qualifiedName)
+    }
     refs.groupBy(identity).map { case (k, refs) => k -> refs.length }
   }
 }
