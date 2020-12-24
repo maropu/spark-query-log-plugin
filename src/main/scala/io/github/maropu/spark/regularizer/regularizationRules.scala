@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package io.github.maropu.spark
+package io.github.maropu.spark.regularizer
 
+import io.github.maropu.spark.QueryLogPlugin
+
+import org.apache.spark.sql.QueryLogConf
+import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.expressions.{Alias, Expression, Least, Literal}
 import org.apache.spark.sql.catalyst.optimizer.CollapseProject
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
+import org.apache.spark.sql.internal.SQLConf
 
 /**
  * Standardizes a given logical plan into a more regular form with techniques such as
@@ -33,12 +38,53 @@ import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
  */
 object Regularizer extends RuleExecutor[LogicalPlan] {
 
-  override protected def batches: Seq[Batch] =
+  protected def fixedPoint =
+    FixedPoint(
+      SQLConf.get.regularizerMaxIterations,
+      maxIterationsSetting = QueryLogConf.QUERY_LOG_REGULARIZER_MAX_ITERATIONS.key)
+
+  private def defaultBatches: Seq[Batch] =
     Batch("Regularization", Once,
       RegularizeOneRow,
       EliminateLimits,
       CollapseProject
+    ) ::
+    Batch("User Provided Regularization Rules", fixedPoint,
+      QueryLogPlugin.extraRegularizationRules: _*
     ) :: Nil
+
+  private def stringToSeq(str: String) =
+    str.split(",").map(_.trim()).filter(_.nonEmpty)
+
+  /**
+   * Returns (defaultBatches - excludedRules), the rule batches that
+   * eventually run in [[Regularizer]].
+   */
+  final override def batches: Seq[Batch] = {
+    val excludedRules = SQLConf.get.regularizerExcludedRules.toSeq.flatMap(stringToSeq)
+    if (excludedRules.isEmpty) {
+      defaultBatches
+    } else {
+      defaultBatches.flatMap { batch =>
+        val filteredRules = batch.rules.filter { rule =>
+          val exclude = excludedRules.contains(rule.ruleName)
+          if (exclude) {
+            logInfo(s"Regularization rule '${rule.ruleName}' is excluded from the regularizer.")
+          }
+          !exclude
+        }
+        if (batch.rules == filteredRules) {
+          Some(batch)
+        } else if (filteredRules.nonEmpty) {
+          Some(Batch(batch.name, batch.strategy, filteredRules: _*))
+        } else {
+          logInfo(s"Regularization batch '${batch.name}' is excluded from the regularizer " +
+            s"as all enclosed rules have been excluded.")
+          None
+        }
+      }
+    }
+  }
 }
 
 object RegularizeOneRow extends Rule[LogicalPlan] {

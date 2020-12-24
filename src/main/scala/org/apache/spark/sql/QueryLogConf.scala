@@ -88,9 +88,24 @@ object QueryLogConf {
     .createWithDefault("DEBUG")
 
   val QUERY_LOG_MAX_QUERY_STRING_LENGTH = buildConf("spark.sql.queryLog.maxQueryStringLength")
+    .internal()
     .doc("The maximum length of a query string in query logs.")
     .intConf
     .createWithDefault(15)
+
+  val QUERY_LOG_REGULARIZER_MAX_ITERATIONS =
+    buildConf("spark.sql.queryLog.regularizer.maxIterations")
+      .internal()
+      .doc("The max number of iterations the regularizer runs.")
+      .intConf
+      .createWithDefault(100)
+
+  val QUERY_LOG_REGULARIZER_EXCLUDED_RULES =
+    buildConf("spark.sql.queryLog.regularizer.excludedRules")
+      .doc("Configures a list of rules to be disabled in the regularizer, in which the rules are " +
+        "specified by their rule names and separated by comma.")
+      .stringConf
+      .createOptional
 }
 
 class QueryLogConf(conf: SQLConf) {
@@ -109,6 +124,10 @@ class QueryLogConf(conf: SQLConf) {
   def debugLogLevel: String = getConf(QUERY_LOG_DEBUG_LOG_LEVEL)
 
   def maxQueryStringLength: Int = getConf(QUERY_LOG_MAX_QUERY_STRING_LENGTH)
+
+  def regularizerMaxIterations: Int = getConf(QUERY_LOG_REGULARIZER_MAX_ITERATIONS)
+
+  def regularizerExcludedRules: Option[String] = getConf(QUERY_LOG_REGULARIZER_EXCLUDED_RULES)
 
   /**
    * Return the value of configuration property for the given key. If the key is not set yet,

@@ -21,11 +21,15 @@ import java.util.TimeZone
 
 import scala.util.Random
 
+import io.github.maropu.spark.regularizer.Regularizer
+
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.QueryLogUtils
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.util.{DateTimeUtils, TimestampFormatter}
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.internal.SQLConf
@@ -119,6 +123,9 @@ object QueryLogPlugin extends Logging {
   @volatile private var queryLogListener: QueryLogListener = _
   @volatile private var installed = false
 
+  // Allows extra regularization rules to be injected into [[Regularizer]] at runtime
+  @volatile var extraRegularizationRules: Seq[Rule[LogicalPlan]] = Nil
+
   private def defaultQueryLogStore = SQLConf.get.queryLogStore match {
     case "MEMORY" => new QueryLogMemoryStore()
     case "SQLITE" => new QueryLogSQLiteStore()
@@ -158,6 +165,16 @@ object QueryLogPlugin extends Logging {
         throw new SparkException("Active Spark session not found")
       }
     } else {
+      throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
+        "not installed")
+    }
+  }
+
+  // For testing
+  private[spark] def resetQueryLogs(): Unit = {
+    if (installed) {
+      queryLogStore.reset()
+     } else {
       throw new IllegalStateException(s"`${classOf[QueryLogListener].getSimpleName}` " +
         "not installed")
     }

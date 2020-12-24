@@ -89,6 +89,7 @@ So, users can group similar queries by using an arbitrary distance function
 |  Property Name  |  Default  |  Meaning  |
 | ---- | ---- | ---- |
 |  spark.sql.queryLog.randomSamplingRatio  |  1.0  |  Sampling ratio for query logs. |
+|  spark.sql.queryLog.regularizer.excludedRules |  None  | Configures a list of rules to be disabled in the regularizer, in which the rules are specified by their rule names and separated by comma. |
 
 ## References
 
