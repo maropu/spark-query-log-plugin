@@ -95,8 +95,11 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
     if (queryLogRandomSamplingRatio > Random.nextDouble()) {
       val query = qe.optimizedPlan.toString()
-      val fingerprint = QueryLogUtils.computeFingerprint(qe)
-      val refs = QueryLogUtils.computePlanReferences(qe)
+      val fingerprint = {
+        val p = Regularizer.execute(qe.optimizedPlan)
+        QueryLogUtils.computeFingerprint(p)
+      }
+      val refs = QueryLogUtils.computePlanReferences(qe.sparkPlan)
       val durationMs = {
         val metricMap = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }
         metricMap + ("execution" -> durationNs / (1000 * 1000))

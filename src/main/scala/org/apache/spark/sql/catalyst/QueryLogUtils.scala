@@ -20,24 +20,25 @@ package org.apache.spark.sql.catalyst
 import java.util.UUID
 
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId}
-import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.execution.SparkPlan
 
 object QueryLogUtils {
 
   private val fixedUuid = UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88")
   private val fixedExprId = ExprId(0L, fixedUuid)
 
-  def computeFingerprint(qe: QueryExecution): Int = {
+  def computeFingerprint(plan: LogicalPlan): Int = {
     // TODO: Use `QueryPlan.transformUpWithNewOutput` instead
-    val canonicalized = qe.optimizedPlan.transformAllExpressions {
+    val canonicalized = plan.transformAllExpressions {
       case attr: AttributeReference => attr.copy()(fixedExprId, attr.qualifier)
       case alias: Alias => alias.copy()(fixedExprId, alias.qualifier, alias.explicitMetadata)
     }
     canonicalized.semanticHash()
   }
 
-  def computePlanReferences(qe: QueryExecution): Map[String, Int] = {
-    val refs = qe.sparkPlan.collectLeaves().flatMap(_.output.map(_.qualifiedName))
+  def computePlanReferences(plan: SparkPlan): Map[String, Int] = {
+    val refs = plan.collectLeaves().flatMap(_.output.map(_.qualifiedName))
     refs.groupBy(identity).map { case (k, refs) => k -> refs.length }
   }
 }
