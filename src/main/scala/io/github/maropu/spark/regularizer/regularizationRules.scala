@@ -45,6 +45,7 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
 
   private def defaultBatches: Seq[Batch] =
     Batch("Regularization", Once,
+      // TODO: Adds a rule to regularize a join order
       RegularizeOneRow,
       EliminateLimits,
       CollapseProject
