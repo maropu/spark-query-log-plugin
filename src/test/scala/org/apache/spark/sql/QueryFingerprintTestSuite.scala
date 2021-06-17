@@ -20,10 +20,9 @@ package org.apache.spark.sql
 import java.io.File
 import java.net.URI
 
-import io.github.maropu.spark.regularizer.Regularizer
+import io.github.maropu.spark.SemanticHash
 
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.plans.SQLHelper
 import org.apache.spark.sql.catalyst.util.{fileToString, stringToFile}
 import org.apache.spark.sql.internal.SQLConf
@@ -122,8 +121,8 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
     // Run the SQL queries preparing them for comparison.
     val outputs: Seq[QueryOutput] = queries.map { sql =>
       val p = localSparkSession.sql(sql).queryExecution.optimizedPlan
-      val fingerprint = QueryLogUtils.computeFingerprint(p)
-      QueryOutput(sql, replaceNotIncludedMsg(p.toString.trim), fingerprint)
+      val hashv = SemanticHash.hashValue(p)
+      QueryOutput(sql, replaceNotIncludedMsg(p.toString.trim), hashv)
     }
 
     if (regenerateGoldenFiles) {

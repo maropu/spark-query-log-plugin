@@ -17,8 +17,6 @@
 
 package io.github.maropu.spark.regularizer
 
-import io.github.maropu.spark.regularizer.RegularizeOneRow
-
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.{Alias, GenericInternalRow, Literal}
 import org.apache.spark.sql.catalyst.plans.PlanTest
@@ -35,12 +33,12 @@ class RegularizeOneRowSuite extends PlanTest {
       ) :: Nil
   }
 
-  private def computeFingerprint(p: LogicalPlan): Int = {
+  private def computeSemanticHash(p: LogicalPlan): Int = {
     p.canonicalized.hashCode
   }
 
   private def compareFingerprint(p1: LogicalPlan, p2: LogicalPlan) =
-    computeFingerprint(p1) === computeFingerprint(p2)
+    computeSemanticHash(p1) === computeSemanticHash(p2)
 
   test("regularize one row") {
     val output = Seq('a.int, 'b.int, 'c.int)

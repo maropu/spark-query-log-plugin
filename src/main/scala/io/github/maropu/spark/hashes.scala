@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.catalyst
+package io.github.maropu.spark
 
-import org.apache.spark.sql.execution.{FileSourceScanExec, SparkPlan}
+import io.github.maropu.spark.regularizer.Regularizer
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
-object QueryLogUtils {
+object SemanticHash {
 
-  def computePlanReferences(plan: SparkPlan): Map[String, Int] = {
-    val refs = plan.collectLeaves().flatMap {
-      case s: FileSourceScanExec if s.tableIdentifier.isDefined =>
-        val ident = s.tableIdentifier.get.unquotedString
-        s.output.map { a => s"$ident.${a.name}" }
-      case p =>
-        p.output.map(_.qualifiedName)
-    }
-    refs.groupBy(identity).map { case (k, refs) => k -> refs.length }
+  def hashValue(plan: LogicalPlan): Int = {
+    val p = Regularizer.execute(plan.canonicalized)
+    // To avoid re-assigning new exprIds (w/ new UUIDs), directly calls `p.hashCode`
+    // instead of calling `p.semanticHash()`.
+    p.hashCode()
   }
 }
