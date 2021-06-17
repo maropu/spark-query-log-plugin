@@ -4,6 +4,12 @@ CREATE TABLE dt1 (b INT) USING parquet;
 CREATE TABLE dt2 (c INT) USING parquet;
 CREATE TABLE dt3 (d INT) USING parquet;
 
+SELECT * FROM ft, dt1, dt2
+WHERE ft.a = dt1.b AND ft.a = dt2.c;
+
+SELECT * FROM ft, dt2, dt1
+WHERE ft.a = dt2.c AND ft.a = dt1.b;
+
 SELECT * FROM ft, dt1, dt2, dt3
 WHERE ft.a = dt1.b AND ft.a = dt2.c AND ft.a = dt3.d;
 

@@ -20,6 +20,7 @@ package io.github.maropu.spark.regularizer
 import java.util.UUID
 
 import io.github.maropu.spark.QueryLogPlugin
+
 import org.apache.spark.sql.QueryLogConf
 import org.apache.spark.sql.QueryLogConf._
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation
@@ -122,8 +123,7 @@ object RegularizeExprOrders extends Rule[LogicalPlan] {
 
 object RegularizeExprs extends Rule[LogicalPlan] {
 
-  private val fixedUuid = UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88")
-  private val fixedExprId = ExprId(0L, fixedUuid)
+  val fixedExprId = ExprId(0L, UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88"))
 
   override def apply(plan: LogicalPlan): LogicalPlan = {
     plan.transform {
@@ -142,12 +142,15 @@ object RegularizeExprs extends Rule[LogicalPlan] {
         a.copy(aggregateExpressions = newAggExprs)
 
       case r @ LocalRelation(output, _, _) =>
-        r.copy(output = output.map { a => a.withExprId(fixedExprId) })
-      case r @ HiveTableRelation(_, output, _, _, _) =>
-        r.copy(dataCols = output.map { a => a.withExprId(fixedExprId) })
+        r.copy(output = output.map(_.withExprId(fixedExprId)))
+
+      case r @ HiveTableRelation(_, dataCols, partCols, _, _) =>
+        def clearExprs(o: Seq[AttributeReference]) = o.map(_.withExprId(fixedExprId))
+        r.copy(dataCols = clearExprs(dataCols), partitionCols = clearExprs(partCols))
     }.transformAllExpressions {
       case attr: AttributeReference =>
         attr.copy()(fixedExprId, attr.qualifier)
+
       case a @ Alias(child, _) =>
         Alias(child, "none")(fixedExprId, a.qualifier, a.explicitMetadata)
     }
@@ -157,10 +160,17 @@ object RegularizeExprs extends Rule[LogicalPlan] {
 object RegularizeCatalogInfo extends Rule[LogicalPlan] {
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
-    case r @ LogicalRelation(_, _, Some(table), _) =>
-      r.copy(catalogTable = Some(table.copy(createTime = 0L)))
+    case r @ LogicalRelation(_, _, table, _) =>
+      // TODO: Reconsiders this
+      val newCatalogTable = table.map(_.copy(createTime = 0L))
+      r.copy(relation = null, output = Nil, catalogTable = newCatalogTable)
+
     case r @ HiveTableRelation(table, _, _, _, _) =>
-      r.copy(tableMeta = table.copy(createTime = 0L), tableStats = None, prunedPartitions = None)
+      // TODO: Reconsiders this
+      val newCatalogTable = table.copy(createTime = 0L)
+      r.copy(tableMeta = newCatalogTable, dataCols = Nil, partitionCols = Nil,
+        tableStats = None, prunedPartitions = None)
+
     case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
       CreateDataSourceTableCommand(table.copy(createTime = 0L), ignoreIfExists)
   }
