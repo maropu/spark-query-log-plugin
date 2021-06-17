@@ -36,7 +36,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
     s"""CREATE TABLE IF NOT EXISTS $tableName (
        |  timestamp TEXT,
        |  query TEXT,
-       |  fingerprint INTEGER,
+       |  semanticHash INTEGER,
        |  attrRefs TEXT,
        |  durationMs TEXT
        |);
@@ -90,7 +90,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
         .mkString("{", ", ", "}")
       stmt.execute(s"""
            |INSERT INTO $tableName VALUES (
-           |  '${ql.timestamp}', '${ql.query}', ${ql.fingerprint}, '$refs', '$durationMs'
+           |  '${ql.timestamp}', '${ql.query}', ${ql.semanticHash}, '$refs', '$durationMs'
            |);
          """.stripMargin)
     }
@@ -104,7 +104,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
       .load()
 
     df.selectExpr(
-      "timestamp", "query", "fingerprint", "from_json(attrRefs, 'MAP<STRING, INT>') attrRefs",
+      "timestamp", "query", "semanticHash", "from_json(attrRefs, 'MAP<STRING, INT>') attrRefs",
       "from_json(durationMs, 'MAP<STRING, LONG>') durationMs")
   }.getOrElse {
     throw new SparkException("Active Spark session not found")

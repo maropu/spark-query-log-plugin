@@ -29,7 +29,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.util.Utils
 
-class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with SQLHelper {
+class QueryHashTestSuite extends QueryTest with SharedSparkSession with SQLHelper {
 
   private val regenerateGoldenFiles: Boolean = System.getenv("SPARK_GENERATE_GOLDEN_FILES") == "1"
 
@@ -42,7 +42,7 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
   }
 
   protected val baseResourcePath = {
-    getWorkspaceFilePath("src", "test", "resources", "fingerprint-tests").toFile
+    getWorkspaceFilePath("src", "test", "resources", "query-hash-tests").toFile
   }
 
   protected val inputFilePath = new File(baseResourcePath, "inputs").getAbsolutePath
@@ -58,15 +58,15 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
   listTestCases.foreach(createScalaTestCase)
 
   /** A single SQL query's output. */
-  protected case class QueryOutput(sql: String, plan: String, fingerprint: Int) {
+  protected case class QueryOutput(sql: String, plan: String, semanticHash: Int) {
     override def toString: String = {
       // We are explicitly not using multi-line string due to stripMargin removing "|" in output.
       s"-- !query\n" +
         sql + "\n" +
         s"-- !query plan\n" +
         plan + "\n" +
-        s"-- !query fingerprint\n" +
-        fingerprint
+        s"-- !query semantic hash\n" +
+        semanticHash
     }
   }
 
@@ -154,7 +154,7 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
           QueryOutput(
             sql = segments(i * 3 + 1).trim,
             plan = segments(i * 3 + 2).trim,
-            fingerprint = segments(i * 3 + 3).trim.toInt
+            semanticHash = segments(i * 3 + 3).trim.toInt
           )
         }
       }
@@ -171,8 +171,8 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
         assertResult(expected.plan, s"Plan did not match for query #$i\n${expected.sql}") {
           output.plan
         }
-        assertResult(expected.fingerprint, s"Fingerprint did not match" +
-          s" for query #$i\n${expected.sql}") { output.fingerprint }
+        assertResult(expected.semanticHash, s"Fingerprint did not match" +
+          s" for query #$i\n${expected.sql}") { output.semanticHash }
       }
     }
   }

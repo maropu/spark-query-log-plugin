@@ -62,7 +62,7 @@ class QueryLogListenerSuite
     TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
     val results = queryLogStore.load()
       .where("query LIKE '%Project%' OR query LIKE '%Aggregate%'")
-      .selectExpr("fingerprint")
+      .selectExpr("semanticHash")
       .collect()
     assert(results.toSet === Set(Row(-1944125662), Row(-458077736), Row(130736385)))
   }

@@ -41,7 +41,7 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
     withQueryStore {
       (0 until 10).foreach { _ => sql("SELECT 1").count() }
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val ql = QueryLogPlugin.load().where("fingerprint = 1654487269")
+      val ql = QueryLogPlugin.load().where("semanticHash = 1654487269")
       assert(ql.count() === 10)
     }
   }
@@ -53,7 +53,7 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
       (0 until 10).foreach { _ => sql("SELECT 1").count() }
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
       assert(queryLogs.length === 10)
-      assert(queryLogs.map(_.fingerprint).distinct.length === 1)
+      assert(queryLogs.map(_.semanticHash).distinct.length === 1)
     } finally {
       QueryLogPlugin.uninstall()
     }
@@ -71,9 +71,9 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
       sql("SELECT 1").collect()
       sql("SELECT v FROM VALUES (1) t(v)").collect()
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      // Assumes that the fingerprint `-1944125662` represents "SELECT 1" and [[RegularizeOneRow]]
+      // Assumes that the semanticHash `-1944125662` represents "SELECT 1" and [[RegularizeOneRow]]
       // converts "SELECT v FROM VALUES (1) t(v)" into "SELECT 1".
-      val ql = QueryLogPlugin.load().where("fingerprint = -1944125662")
+      val ql = QueryLogPlugin.load().where("semanticHash = -1944125662")
       assert(ql.count() === 2)
 
       withSQLConf(QueryLogConf.QUERY_LOG_REGULARIZER_EXCLUDED_RULES.key ->
@@ -90,8 +90,8 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
       sql("SELECT 1").collect()
       sql("SELECT 2").collect()
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val ql = QueryLogPlugin.load().where("fingerprint = -1944125662 OR fingerprint = -1830202804")
-      assert(ql.selectExpr("fingerprint").distinct().count() === 2)
+      val ql = QueryLogPlugin.load().where("semanticHash = -1944125662 OR semanticHash = -1830202804")
+      assert(ql.selectExpr("semanticHash").distinct().count() === 2)
 
       QueryLogPlugin.resetQueryLogs()
       assert(ql.count() === 0)
@@ -107,7 +107,7 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
         sql("SELECT 1").collect()
         sql("SELECT 2").collect()
         TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-        assert(ql.selectExpr("fingerprint").distinct().count() === 1)
+        assert(ql.selectExpr("semanticHash").distinct().count() === 1)
       } finally {
         QueryLogPlugin.extraRegularizationRules = Nil
       }
