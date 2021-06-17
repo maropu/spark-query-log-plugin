@@ -13,6 +13,12 @@ WHERE ft.a = dt3.d AND ft.a = dt2.c AND ft.a = dt1.b;
 SELECT * FROM ft, dt1, dt2, dt3
 WHERE ft.a = dt2.c AND ft.a = dt3.d AND ft.a = dt1.b;
 
+SELECT * FROM ft, dt3, dt2, dt1
+WHERE ft.a = dt2.c AND ft.a = dt3.d AND ft.a = dt1.b;
+
+SELECT * FROM ft, dt2, dt1, dt3
+WHERE ft.a = dt2.c AND ft.a = dt3.d AND ft.a = dt1.b;
+
 SELECT * FROM (
   SELECT a, c FROM ft, dt2 WHERE ft.a = dt2.c
 ) t, dt1, dt3
