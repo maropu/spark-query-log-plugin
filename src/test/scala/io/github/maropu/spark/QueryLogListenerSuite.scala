@@ -67,65 +67,6 @@ class QueryLogListenerSuite
     assert(results.toSet === Set(Row(-447001758), Row(-1806854913), Row(-53078370)))
   }
 
-  test("fingerprint simple test") {
-    sql(s"""
-         |SELECT COUNT(v) AS v, k AS k
-         |FROM VALUES (1, 1) t(k, v)
-         |GROUP BY 2
-       """.stripMargin).collect()
-    sql(s"""
-         |SELECT a AS key, SUM(b) AS value
-         |FROM (
-         |  SELECT * FROM VALUES (1, 1) s(a, b)
-         |)
-         |GROUP BY a
-       """.stripMargin).collect()
-    TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-    val results = queryLogStore.load()
-      .where("query LIKE '%Aggregate%'")
-      .selectExpr("fingerprint")
-      .distinct()
-      .collect()
-    assert(results === Seq(Row(2140489373), Row(-687168322)))
-  }
-
-  ignore("fingerprint test - multiple join") {
-     withTable("ft", "dt1", "dt2", "dt3") {
-       sql("CREATE TABLE ft (a INT) USING parquet")
-       sql("CREATE TABLE dt1 (b INT) USING parquet")
-       sql("CREATE TABLE dt2 (c INT) USING parquet")
-       sql("CREATE TABLE dt3 (d INT) USING parquet")
-
-       sql(s"""
-            |SELECT * FROM ft, dt1, dt2, dt3
-            |WHERE ft.a = dt1.b AND ft.a = dt2.c AND ft.a = dt3.d
-          """.stripMargin).collect()
-       sql(s"""
-            |SELECT * FROM ft, dt1, dt2, dt3
-            |WHERE ft.a = dt3.d AND ft.a = dt2.c AND ft.a = dt1.b
-          """.stripMargin).collect()
-       sql(s"""
-            |SELECT * FROM ft, dt1, dt2, dt3
-            |WHERE ft.a = dt2.c AND ft.a = dt3.d AND ft.a = dt1.b
-          """.stripMargin).collect()
-
-       // TODO: Adds a rule to regularize a join order
-       // The current fingerprint of a join query below is `-934549390`
-       sql(s"""
-            |SELECT * FROM (
-            |  SELECT a, c FROM ft, dt2 WHERE ft.a = dt2.c
-            |) t, dt1, dt3
-            |WHERE t.a = dt1.b AND t.a = dt3.d
-          """.stripMargin).collect()
-
-       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-       val ql = queryLogStore.load()
-       ql.show()
-       assert(ql.where("fingerprint = -1382635878").count() === 3)
-       assert(ql.where("fingerprint = 755726794").count() === 1)
-     }
-  }
-
   test("attrRefs test") {
     withTable("t1", "t2") {
       sql("CREATE TABLE t1 (a INT, b INT, c INT, d INT) USING parquet")

@@ -22,6 +22,7 @@ import java.util.UUID
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId}
 import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 import org.apache.spark.sql.execution.{FileSourceScanExec, SparkPlan}
+import org.apache.spark.sql.execution.command.CreateDataSourceTableCommand
 
 object QueryLogUtils {
 
@@ -31,6 +32,8 @@ object QueryLogUtils {
 
   def computeFingerprint(plan: LogicalPlan): Int = {
     val p = plan.canonicalized.transform {
+      case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
+        CreateDataSourceTableCommand(table.copy(createTime = 0), ignoreIfExists)
       case r @ LocalRelation(output, _, _) =>
         r.copy(output = output.map { a => a.withExprId(fixedExprId) })
       case p => p.transformExpressions {
