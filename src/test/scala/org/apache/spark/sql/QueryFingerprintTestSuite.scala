@@ -121,7 +121,7 @@ class QueryFingerprintTestSuite extends QueryTest with SharedSparkSession with S
 
     // Run the SQL queries preparing them for comparison.
     val outputs: Seq[QueryOutput] = queries.map { sql =>
-      val p = Regularizer.execute(localSparkSession.sql(sql).queryExecution.optimizedPlan)
+      val p = localSparkSession.sql(sql).queryExecution.optimizedPlan
       val fingerprint = QueryLogUtils.computeFingerprint(p)
       QueryOutput(sql, replaceNotIncludedMsg(p.toString.trim), fingerprint)
     }

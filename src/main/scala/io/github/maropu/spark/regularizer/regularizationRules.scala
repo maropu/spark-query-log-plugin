@@ -17,14 +17,17 @@
 
 package io.github.maropu.spark.regularizer
 
+import java.util.UUID
+
 import io.github.maropu.spark.QueryLogPlugin
 
 import org.apache.spark.sql.QueryLogConf
 import org.apache.spark.sql.QueryLogConf._
-import org.apache.spark.sql.catalyst.expressions.{Alias, Expression, Least, Literal}
+import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId, Literal}
 import org.apache.spark.sql.catalyst.optimizer.CollapseProject
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
+import org.apache.spark.sql.execution.command.CreateDataSourceTableCommand
 import org.apache.spark.sql.internal.SQLConf
 
 /**
@@ -44,10 +47,12 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
       maxIterationsSetting = QueryLogConf.QUERY_LOG_REGULARIZER_MAX_ITERATIONS.key)
 
   private def defaultBatches: Seq[Batch] =
-    Batch("Regularization", Once,
+    Batch("Regularization", FixedPoint(1),
       // TODO: Adds a rule to regularize a join order
+      RegularizeExprs,
       RegularizeOneRow,
-      EliminateLimits,
+      RegularizeExprOrders,
+      RegularizeCommands,
       CollapseProject
     ) ::
     Batch("User Provided Regularization Rules", fixedPoint,
@@ -100,29 +105,56 @@ object RegularizeOneRow extends Rule[LogicalPlan] {
   }
 }
 
-/**
- * This rule optimizes Limit operators by:
- * 1. Eliminate [[Limit]] operators if it's child max row <= limit.
- * 2. Combines two adjacent [[Limit]] operators into one, merging the
- *    expressions into one single expression.
- *
- * TODO: This rule will be removed from [[Regularizer]] when landing on Spark v3.1.0
- * because the version implements the rule by default.
- */
-object EliminateLimits extends Rule[LogicalPlan] {
-  private def canEliminate(limitExpr: Expression, child: LogicalPlan): Boolean = {
-    limitExpr.foldable && child.maxRows.exists { _ <= limitExpr.eval().asInstanceOf[Int] }
+object RegularizeExprOrders extends Rule[LogicalPlan] {
+
+  override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
+    case p @ Project(projList, _) =>
+      val newProjList = projList.sortBy(_.hashCode)
+      p.copy(projectList = newProjList)
+
+    case Aggregate(groupingExprs, aggExprs, child) =>
+      val newGroupingExprs = groupingExprs.sortBy(_.hashCode)
+      val newAggExprs = aggExprs.sortBy(_.hashCode)
+      Aggregate(newGroupingExprs, newAggExprs, child)
   }
+}
 
-  def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
-    case Limit(l, child) if canEliminate(l, child) =>
-      child
+object RegularizeExprs extends Rule[LogicalPlan] {
 
-    case GlobalLimit(le, GlobalLimit(ne, grandChild)) =>
-      GlobalLimit(Least(Seq(ne, le)), grandChild)
-    case LocalLimit(le, LocalLimit(ne, grandChild)) =>
-      LocalLimit(Least(Seq(ne, le)), grandChild)
-    case Limit(le, Limit(ne, grandChild)) =>
-      Limit(Least(Seq(ne, le)), grandChild)
+  private val fixedUuid = UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88")
+  private val fixedExprId = ExprId(0L, fixedUuid)
+
+  override def apply(plan: LogicalPlan): LogicalPlan = {
+    plan.transform {
+      case p @ Project(projList, _) =>
+        val newProjList = projList.map {
+          case a: Alias => a
+          case ne => Alias(ne, "none")(exprId = fixedExprId)
+        }
+        p.copy(projectList = newProjList)
+
+      case a @ Aggregate(_, aggExprs, _) =>
+        val newAggExprs = aggExprs.map {
+          case a: Alias => a
+          case ne => Alias(ne, "none")(exprId = fixedExprId)
+        }
+        a.copy(aggregateExpressions = newAggExprs)
+
+      case r @ LocalRelation(output, _, _) =>
+        r.copy(output = output.map { a => a.withExprId(fixedExprId) })
+    }.transformAllExpressions {
+      case attr: AttributeReference =>
+        attr.copy()(fixedExprId, attr.qualifier)
+      case a @ Alias(child, _) =>
+        Alias(child, "none")(fixedExprId, a.qualifier, a.explicitMetadata)
+    }
+  }
+}
+
+object RegularizeCommands extends Rule[LogicalPlan] {
+
+  override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
+    case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
+      CreateDataSourceTableCommand(table.copy(createTime = 0), ignoreIfExists)
   }
 }

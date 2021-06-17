@@ -21,8 +21,6 @@ import java.util.TimeZone
 
 import scala.util.Random
 
-import io.github.maropu.spark.regularizer.Regularizer
-
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
@@ -100,8 +98,7 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
     if (queryLogRandomSamplingRatio > Random.nextDouble()) {
       val query = qe.optimizedPlan.toString()
       val fingerprint = {
-        val p = Regularizer.execute(qe.optimizedPlan)
-        QueryLogUtils.computeFingerprint(p)
+        QueryLogUtils.computeFingerprint(qe.optimizedPlan)
       }
       val refs = QueryLogUtils.computePlanReferences(qe.sparkPlan)
       val durationMs = {

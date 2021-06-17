@@ -17,32 +17,15 @@
 
 package org.apache.spark.sql.catalyst
 
-import java.util.UUID
+import io.github.maropu.spark.regularizer.Regularizer
 
-import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId}
-import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.{FileSourceScanExec, SparkPlan}
-import org.apache.spark.sql.execution.command.CreateDataSourceTableCommand
 
 object QueryLogUtils {
 
-  private val fixedUuid = UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88")
-  // TODO: Use `QueryPlan.transformUpWithNewOutput` instead
-  private val fixedExprId = ExprId(0L, fixedUuid)
-
   def computeFingerprint(plan: LogicalPlan): Int = {
-    val p = plan.canonicalized.transform {
-      case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
-        CreateDataSourceTableCommand(table.copy(createTime = 0), ignoreIfExists)
-      case r @ LocalRelation(output, _, _) =>
-        r.copy(output = output.map { a => a.withExprId(fixedExprId) })
-      case p => p.transformExpressions {
-        case attr: AttributeReference =>
-          attr.copy()(fixedExprId, attr.qualifier)
-        case a @ Alias(child, name) =>
-          Alias(child, name)(fixedExprId, a.qualifier, a.explicitMetadata)
-      }
-    }
+    val p = Regularizer.execute(plan.canonicalized)
     // To avoid re-assigning new exprIds (w/ new UUIDs), directly calls `p.hashCode`
     // instead of calling `p.semanticHash()`.
     p.hashCode()
