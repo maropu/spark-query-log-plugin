@@ -25,7 +25,6 @@ import io.github.maropu.spark.regularizer.Regularizer
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.plans.SQLHelper
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util.{fileToString, stringToFile}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
