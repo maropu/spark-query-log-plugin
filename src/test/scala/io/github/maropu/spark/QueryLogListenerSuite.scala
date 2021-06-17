@@ -64,7 +64,7 @@ class QueryLogListenerSuite
       .where("query LIKE '%Project%' OR query LIKE '%Aggregate%'")
       .selectExpr("fingerprint")
       .collect()
-    assert(results.toSet === Set(Row(-447001758), Row(-1806854913), Row(652410493)))
+    assert(results.toSet === Set(Row(-447001758), Row(-1806854913), Row(-53078370)))
   }
 
   test("fingerprint simple test") {

@@ -27,7 +27,7 @@
 
   <groupId>org.apache.spark</groupId>
   <artifactId>spark-query-log-plugin_2.12</artifactId>
-  <version>0.1.0-spark3.0-SNAPSHOT</version>
+  <version>0.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>A toolkit to analyze SQL/DataFrame/Dataset logs</name>
 
@@ -42,10 +42,11 @@
     <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
     <sqlite-jdbc.version>3.28.0</sqlite-jdbc.version>
-    <spark.version>3.0.1</spark.version>
+    <spark.version>3.1.2</spark.version>
+    <spark.binary.version>3.1</spark.binary.version>
     <hadoop.version>2.7.4</hadoop.version>
     <hadoop.binary.version>2.7</hadoop.binary.version>
-    <scalatest.version>3.0.8</scalatest.version>
+    <scalatest.version>3.2.3</scalatest.version>
 
     <test.java.home>${java.home}</test.java.home>
     <test.exclude.tags></test.exclude.tags>
@@ -120,7 +121,7 @@
   <build>
     <directory>target</directory>
     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
-    <finalName>${project.artifactId}_${spark.version}-${project.version}</finalName>
+    <finalName>${project.artifactId}_spark${spark.binary.version}-${project.version}</finalName>
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
     <sourceDirectory>src/main/scala</sourceDirectory>
     <testSourceDirectory>src/test/scala</testSourceDirectory>
@@ -414,7 +415,7 @@
           </execution>
         </executions>
         <configuration>
-          <finalName>${project.artifactId}_${spark.version}-${project.version}</finalName>
+          <finalName>${project.artifactId}_spark${spark.binary.version}-${project.version}</finalName>
           <outputDirectory>${project.parent.build.directory}</outputDirectory>
         </configuration>
       </plugin>
@@ -430,7 +431,7 @@
               <goal>shade</goal>
             </goals>
             <configuration>
-              <finalName>${project.artifactId}_${spark.version}-${project.version}-with-dependencies</finalName>
+              <finalName>${project.artifactId}_spark${spark.binary.version}-${project.version}-with-dependencies</finalName>
               <outputDirectory>${project.parent.build.directory}</outputDirectory>
               <minimizeJar>false</minimizeJar>
               <createDependencyReducedPom>false</createDependencyReducedPom>

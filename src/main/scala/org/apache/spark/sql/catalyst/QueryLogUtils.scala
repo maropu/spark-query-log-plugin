@@ -36,8 +36,8 @@ object QueryLogUtils {
       case p => p.transformExpressions {
         case attr: AttributeReference =>
           attr.copy()(fixedExprId, attr.qualifier)
-        case alias: Alias =>
-          alias.copy()(fixedExprId, alias.qualifier, alias.explicitMetadata)
+        case a @ Alias(child, name) =>
+          Alias(child, name)(fixedExprId, a.qualifier, a.explicitMetadata)
       }
     }
     // To avoid re-assigning new exprIds (w/ new UUIDs), directly calls `p.hashCode`
