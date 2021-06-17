@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package io.github.maropu.spark
+package io.github.maropu.spark.regularizer
 
 import io.github.maropu.spark.regularizer.RegularizeOneRow
 
-import org.apache.spark.sql.catalyst.QueryLogUtils
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.{Alias, GenericInternalRow, Literal}
 import org.apache.spark.sql.catalyst.plans.PlanTest
@@ -36,8 +35,12 @@ class RegularizeOneRowSuite extends PlanTest {
       ) :: Nil
   }
 
+  private def computeFingerprint(p: LogicalPlan): Int = {
+    p.canonicalized.hashCode
+  }
+
   private def compareFingerprint(p1: LogicalPlan, p2: LogicalPlan) =
-    QueryLogUtils.computeFingerprint(p1) === QueryLogUtils.computeFingerprint(p2)
+    computeFingerprint(p1) === computeFingerprint(p2)
 
   test("regularize one row") {
     val output = Seq('a.int, 'b.int, 'c.int)

@@ -20,14 +20,15 @@ package io.github.maropu.spark.regularizer
 import java.util.UUID
 
 import io.github.maropu.spark.QueryLogPlugin
-
 import org.apache.spark.sql.QueryLogConf
 import org.apache.spark.sql.QueryLogConf._
+import org.apache.spark.sql.catalyst.catalog.HiveTableRelation
 import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, ExprId, Literal}
 import org.apache.spark.sql.catalyst.optimizer.CollapseProject
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.execution.command.CreateDataSourceTableCommand
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.internal.SQLConf
 
 /**
@@ -52,7 +53,7 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
       RegularizeExprs,
       RegularizeOneRow,
       RegularizeExprOrders,
-      RegularizeCommands,
+      RegularizeCatalogInfo,
       CollapseProject
     ) ::
     Batch("User Provided Regularization Rules", fixedPoint,
@@ -142,6 +143,8 @@ object RegularizeExprs extends Rule[LogicalPlan] {
 
       case r @ LocalRelation(output, _, _) =>
         r.copy(output = output.map { a => a.withExprId(fixedExprId) })
+      case r @ HiveTableRelation(_, output, _, _, _) =>
+        r.copy(dataCols = output.map { a => a.withExprId(fixedExprId) })
     }.transformAllExpressions {
       case attr: AttributeReference =>
         attr.copy()(fixedExprId, attr.qualifier)
@@ -151,10 +154,14 @@ object RegularizeExprs extends Rule[LogicalPlan] {
   }
 }
 
-object RegularizeCommands extends Rule[LogicalPlan] {
+object RegularizeCatalogInfo extends Rule[LogicalPlan] {
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
+    case r @ LogicalRelation(_, _, Some(table), _) =>
+      r.copy(catalogTable = Some(table.copy(createTime = 0L)))
+    case r @ HiveTableRelation(table, _, _, _, _) =>
+      r.copy(tableMeta = table.copy(createTime = 0L), tableStats = None, prunedPartitions = None)
     case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
-      CreateDataSourceTableCommand(table.copy(createTime = 0), ignoreIfExists)
+      CreateDataSourceTableCommand(table.copy(createTime = 0L), ignoreIfExists)
   }
 }

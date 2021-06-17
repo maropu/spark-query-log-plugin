@@ -50,7 +50,7 @@ Join Inner, (a#x = d#x)
 +- Filter isnotnull(d#x)
    +- Relation[d#x] parquet
 -- !query fingerprint
--672265379
+355373925
 
 
 -- !query
@@ -69,7 +69,7 @@ Join Inner, (a#x = d#x)
 +- Filter isnotnull(d#x)
    +- Relation[d#x] parquet
 -- !query fingerprint
--672265379
+355373925
 
 
 -- !query
@@ -88,7 +88,7 @@ Join Inner, (a#x = d#x)
 +- Filter isnotnull(d#x)
    +- Relation[d#x] parquet
 -- !query fingerprint
--672265379
+355373925
 
 
 -- !query
@@ -107,7 +107,7 @@ Join Inner, (a#x = b#x)
 +- Filter isnotnull(b#x)
    +- Relation[b#x] parquet
 -- !query fingerprint
--125942598
+-30317736
 
 
 -- !query
@@ -126,7 +126,7 @@ Join Inner, (a#x = d#x)
 +- Filter isnotnull(d#x)
    +- Relation[d#x] parquet
 -- !query fingerprint
--674063494
+-42611560
 
 
 -- !query
@@ -147,7 +147,7 @@ Join Inner, (a#x = d#x)
 +- Filter isnotnull(d#x)
    +- Relation[d#x] parquet
 -- !query fingerprint
--674063494
+-42611560
 
 
 -- !query
