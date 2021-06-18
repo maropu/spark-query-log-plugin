@@ -44,11 +44,11 @@ class QueryLogSQLiteStoreSuite extends QueryTest with SharedSparkSession with Be
   }
 
   test("put/load test") {
-    val q1 = QueryLog("2020-12-09 06:27:44.443", "query", 5242,
+    val q1 = QueryLog("2020-12-09 06:27:44.443", "query", 5242, 6532,
       Map("a" -> 1, "b" -> 2), Map("execution" -> 5))
-    val q2 = QueryLog("2020-12-10 08:00:04.153", "query", 2932,
+    val q2 = QueryLog("2020-12-10 08:00:04.153", "query", 2932, 3219,
       Map("b" -> 1), Map("execution" -> 2))
-    val q3 = QueryLog("2020-12-13 11:09:51.001", "query", 3921,
+    val q3 = QueryLog("2020-12-13 11:09:51.001", "query", 3921, 1923,
       Map("a" -> 1, "b" -> 2, "c" -> 1), Map("execution" -> 3))
     val queryLogs = Seq(q1, q2, q3)
     queryLogs.foreach(queryLogStore.put)

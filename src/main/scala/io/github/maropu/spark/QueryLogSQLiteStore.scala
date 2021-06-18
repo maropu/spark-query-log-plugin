@@ -37,6 +37,7 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
        |  timestamp TEXT,
        |  query TEXT,
        |  semanticHash INTEGER,
+       |  structuralHash INTEGER,
        |  attrRefs TEXT,
        |  durationMs TEXT
        |);
@@ -90,7 +91,8 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
         .mkString("{", ", ", "}")
       stmt.execute(s"""
            |INSERT INTO $tableName VALUES (
-           |  '${ql.timestamp}', '${ql.query}', ${ql.semanticHash}, '$refs', '$durationMs'
+           |  '${ql.timestamp}', '${ql.query}', ${ql.semanticHash}, ${ql.structuralHash},
+           |  '$refs', '$durationMs'
            |);
          """.stripMargin)
     }
@@ -104,7 +106,8 @@ private[spark] class QueryLogSQLiteStore extends QueryLogStore with Logging {
       .load()
 
     df.selectExpr(
-      "timestamp", "query", "semanticHash", "from_json(attrRefs, 'MAP<STRING, INT>') attrRefs",
+      "timestamp", "query", "semanticHash", "structuralHash",
+      "from_json(attrRefs, 'MAP<STRING, INT>') attrRefs",
       "from_json(durationMs, 'MAP<STRING, LONG>') durationMs")
   }.getOrElse {
     throw new SparkException("Active Spark session not found")

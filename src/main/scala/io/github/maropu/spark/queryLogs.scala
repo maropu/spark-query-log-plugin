@@ -35,8 +35,8 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.QueryExecutionListener
 
 case class QueryLog(
-  timestamp: String, query: String, semanticHash: Int, attrRefs: Map[String, Int],
-  durationMs: Map[String, Long]) {
+  timestamp: String, query: String, semanticHash: Int, structuralHash: Int,
+  attrRefs: Map[String, Int], durationMs: Map[String, Long]) {
 
   private def maxQueryStringLength = SQLConf.get.maxQueryStringLength
 
@@ -54,7 +54,8 @@ case class QueryLog(
 
   override def toString(): String = {
     s"""{"timestamp": "$timestamp", "query": "${toQueryString(query)}", """ +
-      s""""semanticHash": $semanticHash, "attrRefs": ${toMapString(attrRefs)}, """ +
+      s""""semanticHash": $semanticHash, "structuralHash": $structuralHash, """ +
+      s""""attrRefs": ${toMapString(attrRefs)}, """ +
       s""""durationMs": ${toMapString(durationMs)}}"""
   }
 }
@@ -97,13 +98,14 @@ private[spark] class QueryLogListener(queryLogStore: QueryLogStore)
   override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
     if (queryLogRandomSamplingRatio > Random.nextDouble()) {
       val query = qe.optimizedPlan.toString()
-      val hashv = SemanticHash.hashValue(qe.optimizedPlan)
+      val semHashValue = SemanticHash.hashValue(qe.optimizedPlan)
+      val stHashValue = StructuralHash.hashValue(qe.optimizedPlan)
       val refs = QueryLogUtils.computePlanReferences(qe.sparkPlan)
       val durationMs = {
         val metricMap = qe.tracker.phases.mapValues { ps => ps.endTimeMs - ps.startTimeMs }
         metricMap + ("execution" -> durationNs / (1000 * 1000))
       }
-      val queryLog = QueryLog(currentTimestamp, query, hashv, refs, durationMs)
+      val queryLog = QueryLog(currentTimestamp, query, semHashValue, stHashValue, refs, durationMs)
       QueryLog.logBasedOnLevel(queryLog.toString())
       queryLogStore.put(queryLog)
     }
@@ -165,8 +167,7 @@ object QueryLogPlugin extends Logging {
     }
   }
 
-  // For testing
-  private[spark] def resetQueryLogs(): Unit = {
+  def resetQueryLogs(): Unit = {
     if (installed) {
       queryLogStore.reset()
      } else {

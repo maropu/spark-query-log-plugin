@@ -130,12 +130,12 @@ private[spark] object Regularizer extends RuleExecutor[LogicalPlan] {
         // TODO: Reconsiders this
         val newCatalogTable = table.map(_.copy(createTime = 0L))
         r.copy(relation = null, output = Nil, catalogTable = newCatalogTable)
+        new LogicalRelation(null, Nil, newCatalogTable, false)
 
       case r @ HiveTableRelation(table, _, _, _, _) =>
         // TODO: Reconsiders this
-        val newCatalogTable = table.copy(createTime = 0L)
-        r.copy(tableMeta = newCatalogTable, dataCols = Nil, partitionCols = Nil,
-          tableStats = None, prunedPartitions = None)
+        val newCatalogTable = Some(table.copy(createTime = 0L))
+        new LogicalRelation(null, Nil, newCatalogTable, false)
 
       case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
         CreateDataSourceTableCommand(table.copy(createTime = 0L), ignoreIfExists)
