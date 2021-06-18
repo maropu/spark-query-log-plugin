@@ -77,7 +77,7 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
       assert(ql.count() === 2)
 
       withSQLConf(QueryLogConf.QUERY_LOG_REGULARIZER_EXCLUDED_RULES.key ->
-          "io.github.maropu.spark.regularizer.RegularizeOneRow") {
+          "io.github.maropu.spark.regularizer.Regularizer$RegularizeOneRow") {
         sql("SELECT v FROM VALUES (1) t(v)").collect()
         TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
         assert(ql.count() === 2)
@@ -90,7 +90,8 @@ class QueryLogPluginSuite extends QueryTest with SharedSparkSession {
       sql("SELECT 1").collect()
       sql("SELECT 2").collect()
       TestUtils.waitListenerBusUntilEmpty(spark.sparkContext)
-      val ql = QueryLogPlugin.load().where("semanticHash = -1944125662 OR semanticHash = -1830202804")
+      val ql = QueryLogPlugin.load()
+        .where("semanticHash = -1944125662 OR semanticHash = -1830202804")
       assert(ql.selectExpr("semanticHash").distinct().count() === 2)
 
       QueryLogPlugin.resetQueryLogs()

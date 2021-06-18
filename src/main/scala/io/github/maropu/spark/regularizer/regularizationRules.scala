@@ -41,7 +41,7 @@ import org.apache.spark.sql.internal.SQLConf
  *  - Gokhan Kul et al., "Similarity Metrics for SQL Query Clustering",
  *    IEEE Transactions on Knowledge and Data Engineering, vol.30, no.12, pp.2408-2420, 2018.
  */
-object Regularizer extends RuleExecutor[LogicalPlan] {
+private[spark] object Regularizer extends RuleExecutor[LogicalPlan] {
 
   protected def fixedPoint =
     FixedPoint(
@@ -61,6 +61,87 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
       QueryLogPlugin.extraRegularizationRules: _*
     ) :: Nil
 
+  object RegularizeOneRow extends Rule[LogicalPlan] {
+
+    override def apply(plan: LogicalPlan): LogicalPlan = plan.transformUp {
+      case LocalRelation(output, data, false) if data.length == 1 =>
+        val dataTypes = output.map(_.dataType)
+        val projectList = data.head.toSeq(dataTypes).zip(output).map { case (cell, attr) =>
+          Alias(Literal(cell, attr.dataType), attr.name)(exprId = attr.exprId)
+        }
+        Project(projectList, OneRowRelation())
+    }
+  }
+
+  object RegularizeExprOrders extends Rule[LogicalPlan] {
+
+    override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
+      case p @ Project(projList, _) =>
+        val newProjList = projList.sortBy(_.hashCode)
+        p.copy(projectList = newProjList)
+
+      case Aggregate(groupingExprs, aggExprs, child) =>
+        val newGroupingExprs = groupingExprs.sortBy(_.hashCode)
+        val newAggExprs = aggExprs.sortBy(_.hashCode)
+        Aggregate(newGroupingExprs, newAggExprs, child)
+    }
+  }
+
+  object RegularizeExprs extends Rule[LogicalPlan] {
+
+    val fixedExprId = ExprId(0L, UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88"))
+
+    override def apply(plan: LogicalPlan): LogicalPlan = {
+      plan.transform {
+        case p @ Project(projList, _) =>
+          val newProjList = projList.map {
+            case a: Alias => a
+            case ne => Alias(ne, "none")(exprId = fixedExprId)
+          }
+          p.copy(projectList = newProjList)
+
+        case a @ Aggregate(_, aggExprs, _) =>
+          val newAggExprs = aggExprs.map {
+            case a: Alias => a
+            case ne => Alias(ne, "none")(exprId = fixedExprId)
+          }
+          a.copy(aggregateExpressions = newAggExprs)
+
+        case r @ LocalRelation(output, _, _) =>
+          r.copy(output = output.map(_.withExprId(fixedExprId)))
+
+        case r @ HiveTableRelation(_, dataCols, partCols, _, _) =>
+          def clearExprs(o: Seq[AttributeReference]) = o.map(_.withExprId(fixedExprId))
+          r.copy(dataCols = clearExprs(dataCols), partitionCols = clearExprs(partCols))
+      }.transformAllExpressions {
+        case attr: AttributeReference =>
+          attr.copy()(fixedExprId, attr.qualifier)
+
+        case a @ Alias(child, _) =>
+          Alias(child, "none")(fixedExprId, a.qualifier, a.explicitMetadata)
+      }
+    }
+  }
+
+  object RegularizeCatalogInfo extends Rule[LogicalPlan] {
+
+    override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
+      case r @ LogicalRelation(_, _, table, _) =>
+        // TODO: Reconsiders this
+        val newCatalogTable = table.map(_.copy(createTime = 0L))
+        r.copy(relation = null, output = Nil, catalogTable = newCatalogTable)
+
+      case r @ HiveTableRelation(table, _, _, _, _) =>
+        // TODO: Reconsiders this
+        val newCatalogTable = table.copy(createTime = 0L)
+        r.copy(tableMeta = newCatalogTable, dataCols = Nil, partitionCols = Nil,
+          tableStats = None, prunedPartitions = None)
+
+      case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
+        CreateDataSourceTableCommand(table.copy(createTime = 0L), ignoreIfExists)
+    }
+  }
+
   private def stringToSeq(str: String) =
     str.split(",").map(_.trim()).filter(_.nonEmpty)
 
@@ -76,6 +157,7 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
       defaultBatches.flatMap { batch =>
         val filteredRules = batch.rules.filter { rule =>
           val exclude = excludedRules.contains(rule.ruleName)
+          // TODO: Remove this logic
           if (exclude) {
             logInfo(s"Regularization rule '${rule.ruleName}' is excluded from the regularizer.")
           }
@@ -92,86 +174,5 @@ object Regularizer extends RuleExecutor[LogicalPlan] {
         }
       }
     }
-  }
-}
-
-object RegularizeOneRow extends Rule[LogicalPlan] {
-
-  override def apply(plan: LogicalPlan): LogicalPlan = plan.transformUp {
-    case LocalRelation(output, data, false) if data.length == 1 =>
-      val dataTypes = output.map(_.dataType)
-      val projectList = data.head.toSeq(dataTypes).zip(output).map { case (cell, attr) =>
-        Alias(Literal(cell, attr.dataType), attr.name)(exprId = attr.exprId)
-      }
-      Project(projectList, OneRowRelation())
-  }
-}
-
-object RegularizeExprOrders extends Rule[LogicalPlan] {
-
-  override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
-    case p @ Project(projList, _) =>
-      val newProjList = projList.sortBy(_.hashCode)
-      p.copy(projectList = newProjList)
-
-    case Aggregate(groupingExprs, aggExprs, child) =>
-      val newGroupingExprs = groupingExprs.sortBy(_.hashCode)
-      val newAggExprs = aggExprs.sortBy(_.hashCode)
-      Aggregate(newGroupingExprs, newAggExprs, child)
-  }
-}
-
-object RegularizeExprs extends Rule[LogicalPlan] {
-
-  val fixedExprId = ExprId(0L, UUID.fromString("6d37d815-ceea-4ae0-a051-b366f55b0e88"))
-
-  override def apply(plan: LogicalPlan): LogicalPlan = {
-    plan.transform {
-      case p @ Project(projList, _) =>
-        val newProjList = projList.map {
-          case a: Alias => a
-          case ne => Alias(ne, "none")(exprId = fixedExprId)
-        }
-        p.copy(projectList = newProjList)
-
-      case a @ Aggregate(_, aggExprs, _) =>
-        val newAggExprs = aggExprs.map {
-          case a: Alias => a
-          case ne => Alias(ne, "none")(exprId = fixedExprId)
-        }
-        a.copy(aggregateExpressions = newAggExprs)
-
-      case r @ LocalRelation(output, _, _) =>
-        r.copy(output = output.map(_.withExprId(fixedExprId)))
-
-      case r @ HiveTableRelation(_, dataCols, partCols, _, _) =>
-        def clearExprs(o: Seq[AttributeReference]) = o.map(_.withExprId(fixedExprId))
-        r.copy(dataCols = clearExprs(dataCols), partitionCols = clearExprs(partCols))
-    }.transformAllExpressions {
-      case attr: AttributeReference =>
-        attr.copy()(fixedExprId, attr.qualifier)
-
-      case a @ Alias(child, _) =>
-        Alias(child, "none")(fixedExprId, a.qualifier, a.explicitMetadata)
-    }
-  }
-}
-
-object RegularizeCatalogInfo extends Rule[LogicalPlan] {
-
-  override def apply(plan: LogicalPlan): LogicalPlan = plan.transform {
-    case r @ LogicalRelation(_, _, table, _) =>
-      // TODO: Reconsiders this
-      val newCatalogTable = table.map(_.copy(createTime = 0L))
-      r.copy(relation = null, output = Nil, catalogTable = newCatalogTable)
-
-    case r @ HiveTableRelation(table, _, _, _, _) =>
-      // TODO: Reconsiders this
-      val newCatalogTable = table.copy(createTime = 0L)
-      r.copy(tableMeta = newCatalogTable, dataCols = Nil, partitionCols = Nil,
-        tableStats = None, prunedPartitions = None)
-
-    case _ @ CreateDataSourceTableCommand(table, ignoreIfExists) =>
-      CreateDataSourceTableCommand(table.copy(createTime = 0L), ignoreIfExists)
   }
 }

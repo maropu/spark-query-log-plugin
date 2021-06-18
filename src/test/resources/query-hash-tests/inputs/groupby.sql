@@ -8,6 +8,8 @@ SELECT k, COUNT(v) AS v FROM VALUES (1, 1) t(k, v) GROUP BY k;
 
 SELECT k, SUM(v) AS v FROM VALUES (1, 1) t(k, v) GROUP BY k;
 
+SELECT k, AVG(v) AS v FROM VALUES (1, 1) t(k, v) GROUP BY k;
+
 SELECT k, COUNT(v) AS v FROM VALUES (1, 2) t(k, v) GROUP BY k;
 
 SELECT COUNT(v) AS v, k AS k FROM VALUES (1, 1) t(k, v) GROUP BY 2;

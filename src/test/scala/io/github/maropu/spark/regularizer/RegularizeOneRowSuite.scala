@@ -17,6 +17,8 @@
 
 package io.github.maropu.spark.regularizer
 
+import io.github.maropu.spark.regularizer.Regularizer.RegularizeOneRow
+
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.{Alias, GenericInternalRow, Literal}
 import org.apache.spark.sql.catalyst.plans.PlanTest

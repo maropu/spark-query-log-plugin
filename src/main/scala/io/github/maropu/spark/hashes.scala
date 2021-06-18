@@ -17,7 +17,8 @@
 
 package io.github.maropu.spark
 
-import io.github.maropu.spark.regularizer.Regularizer
+import io.github.maropu.spark.regularizer.{Regularizer, StructuralHasher}
+
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 
 object SemanticHash {
@@ -28,4 +29,9 @@ object SemanticHash {
     // instead of calling `p.semanticHash()`.
     p.hashCode()
   }
+}
+
+object StructuralHash {
+
+  def hashValue(plan: LogicalPlan): Int = StructuralHasher.computeHashValue(plan)
 }

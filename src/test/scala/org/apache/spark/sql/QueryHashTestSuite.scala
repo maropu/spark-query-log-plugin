@@ -20,7 +20,7 @@ package org.apache.spark.sql
 import java.io.File
 import java.net.URI
 
-import io.github.maropu.spark.SemanticHash
+import io.github.maropu.spark.{SemanticHash, StructuralHash}
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.plans.SQLHelper
@@ -58,15 +58,17 @@ class QueryHashTestSuite extends QueryTest with SharedSparkSession with SQLHelpe
   listTestCases.foreach(createScalaTestCase)
 
   /** A single SQL query's output. */
-  protected case class QueryOutput(sql: String, plan: String, semanticHash: Int) {
+  protected case class QueryOutput(sql: String, p: String, semanticHash: Int, structuralHash: Int) {
     override def toString: String = {
       // We are explicitly not using multi-line string due to stripMargin removing "|" in output.
       s"-- !query\n" +
         sql + "\n" +
         s"-- !query plan\n" +
-        plan + "\n" +
+        p + "\n" +
         s"-- !query semantic hash\n" +
-        semanticHash
+        semanticHash + "\n" +
+        s"-- !query structural hash\n" +
+        structuralHash
     }
   }
 
@@ -121,8 +123,9 @@ class QueryHashTestSuite extends QueryTest with SharedSparkSession with SQLHelpe
     // Run the SQL queries preparing them for comparison.
     val outputs: Seq[QueryOutput] = queries.map { sql =>
       val p = localSparkSession.sql(sql).queryExecution.optimizedPlan
-      val hashv = SemanticHash.hashValue(p)
-      QueryOutput(sql, replaceNotIncludedMsg(p.toString.trim), hashv)
+      val semValue = SemanticHash.hashValue(p)
+      val stValue = StructuralHash.hashValue(p)
+      QueryOutput(sql, replaceNotIncludedMsg(p.toString.trim), semValue, stValue)
     }
 
     if (regenerateGoldenFiles) {
@@ -147,14 +150,15 @@ class QueryHashTestSuite extends QueryTest with SharedSparkSession with SQLHelpe
         val segments = goldenOutput.split("-- !query.*\n")
 
         // each query has 3 segments, plus the header
-        assert(segments.size == outputs.size * 3 + 1,
-          s"Expected ${outputs.size * 3 + 1} blocks in result file but got ${segments.size}. " +
+        assert(segments.size == outputs.size * 4 + 1,
+          s"Expected ${outputs.size * 4 + 1} blocks in result file but got ${segments.size}. " +
             s"Try regenerate the result files.")
         Seq.tabulate(outputs.size) { i =>
           QueryOutput(
-            sql = segments(i * 3 + 1).trim,
-            plan = segments(i * 3 + 2).trim,
-            semanticHash = segments(i * 3 + 3).trim.toInt
+            sql = segments(i * 4 + 1).trim,
+            p = segments(i * 4 + 2).trim,
+            semanticHash = segments(i * 4 + 3).trim.toInt,
+            structuralHash = segments(i * 4 + 4).trim.toInt
           )
         }
       }
@@ -168,8 +172,8 @@ class QueryHashTestSuite extends QueryTest with SharedSparkSession with SQLHelpe
         assertResult(expected.sql, s"SQL query did not match for query #$i\n${expected.sql}") {
           output.sql
         }
-        assertResult(expected.plan, s"Plan did not match for query #$i\n${expected.sql}") {
-          output.plan
+        assertResult(expected.p, s"Plan did not match for query #$i\n${expected.sql}") {
+          output.p
         }
         assertResult(expected.semanticHash, s"Fingerprint did not match" +
           s" for query #$i\n${expected.sql}") { output.semanticHash }
