@@ -1,8 +1,8 @@
 [![License](http://img.shields.io/:license-Apache_v2-blue.svg)](https://github.com/maropu/spark-sql-server/blob/master/LICENSE)
 [![Build and test](https://github.com/maropu/spark-query-log-plugin/workflows/Build%20and%20test/badge.svg)](https://github.com/maropu/spark-query-log-plugin/actions?query=workflow%3A%22Build+and+test%22)
 
-This is an experimental toolkit to store query logs and provide a way to estimate a similarity between queries.
-A query similarity would be useful for real-world usecases such as performance analysis [1] and the sampling of test queries [2].
+This is an experimental plugin to store query logs and provide a way to estimate a similarity between queries in your workload.
+A query similarity would be useful for real-world usecases such as performance analysis [1] and test query sampling [2].
 
 ## Query Logging
 
@@ -69,7 +69,7 @@ you can run an aggregate query as follows:
     |Aggregate [a#0], ...|  2|          3307.5|
     |Aggregate [k#35],...|  1|           797.0|
     +--------------------+---+----------------+
-    
+
     scala> sql("SELECT FIRST(query) query, COUNT(1) cnt, AVG(executionMs) FROM ql GROUP BY structuralHash").show()
     +--------------------+---+----------------+
     |               query|cnt|avg(executionMs)|
@@ -137,5 +137,5 @@ So, users can group similar queries by using an arbitrary distance function
 ## Bug reports
 
 If you hit some bugs and requests, please leave some comments on [Issues](https://github.com/maropu/spark-query-log-plugin/issues)
-or Twitter([@maropu](http://twitter.com/#!/maropu)).
+or Twitter ([@maropu](http://twitter.com/#!/maropu)).
 
